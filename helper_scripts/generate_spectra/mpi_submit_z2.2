@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#SBATCH --job-name=snap31
+#SBATCH --time=02:00:00
+#SBATCH --nodes=7
+#SBATCH --ntasks-per-node=12
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=MaxMemPerNode
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+#module load gnu7
+module load gsl
+module load mpich
+mpirun python3 parallel_spectra.py --i 1 --savefile "spectra_TNG_z2.2" --folder "/1.5kms/" --snap 31 --res 1.5 --numlos 1000

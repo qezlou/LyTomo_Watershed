@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --partition=OBS
+#SBATCH --job-name=cluster1
+#SBATCH --time=48:00:00
+#SBATCH --nodes=10
+#SBATCH --ntasks-per-node=24
+#SBATCH --cpus-per-task=1
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=mqezlou@carnegiescience.edu
+#SBATCH --mem=MaxMemPerNode
+# Making sure fast task waits for the others to finish:
+#SBATCH --wait
+
+module load gnu7
+#module load gsl
+module load mpich
+mpirun python progenitor_parallel.py --PartType 1 --pieces 240 --sfile 0  --efile 599 --cluster 2
+

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#SBATCH --job-name=truemap
+#SBATCH --time=2:00:00
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=12
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=MaxMemPerNode
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+module load gnu7
+module load gsl
+module load mpich
+mpirun python3 parallel_grid.py --snap 29 --nspec 205 --res 2.4195084899095134 --savefile "spectra_TNG_true_2460_pixels.hdf5"
+
+
+

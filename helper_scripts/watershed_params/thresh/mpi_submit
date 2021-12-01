@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#SBATCH --job-name=z.4-2.0
+#SBATCH --time=2:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=6
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=MaxMemPerNode
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+module load gnu7
+module load gsl
+module load mpich
+mpirun python3 get_th_parallel.py --th0 2.0 --mock_file /lustre/scratch/mqezlou/TNG300-1/postprocessing/map_recovery/maps/map_TNG_z2.4_n1_DCV13.dat --true_file /lustre/scratch/mqezlou/TNG300-1/postprocessing/true_map/map_TNG_true_1.0_z2.4.hdf5 --DM_file /lustre/scratch/mqezlou/TNG300-1/postprocessing/DensityField/maps/TNG_DM_z2.4.hdf5 --z 2.4 --sigma 4 --lc 2.0 --periodic 1 --savedir ./thresh/
+
+
+
+
+
+
+

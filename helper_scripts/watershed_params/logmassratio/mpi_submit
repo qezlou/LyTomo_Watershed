@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#SBATCH --job-name=1.8
+#SBATCH --time=2:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=6
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=MaxMemPerNode
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+module load gnu7
+module load gsl
+module load mpich
+mpirun python3 get_lmr_parallel.py --lmr0 1.8
+
+
+
+
+
+

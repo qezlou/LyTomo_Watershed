@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#SBATCH --job-name=
+#SBATCH --time=2:00:00
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=24
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=MaxMemPerNode
+
+module load gnu7
+module load mpich
+mpirun python progenitor_parallel.py --PartType 1 --basepath '/lustre/scratch/mqezlou/TNG300-1/output' --snap 29  --coord_dir './PartType1/individual_clusters' --savedir  './prog_maps3' --cluster
+
+
