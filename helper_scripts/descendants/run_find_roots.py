@@ -1,7 +1,6 @@
 from mpi4py import MPI
 
-import LATIS
-from LATIS.codes import descendant
+from codes import descendant
 import argparse
 
 def run_it(savefile, halosfile):

@@ -1,4 +1,4 @@
-import LATIS.codes.DensityField.get_density_field as get_density_field
+import codes.get_density_field as get_density_field
 import argparse
 def runit(z, snap):
     get_density_field.TNG(snaps='/lustre/scratch/mqezlou/TNG300-1/output/snapdir_0'+str(snap)+'/snap_0'+str(snap)+'.*', savedir='./results_'+str(z)+'/',Nmesh=205, zspace=True, momentumz=True)

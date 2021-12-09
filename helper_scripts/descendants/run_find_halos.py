@@ -1,7 +1,6 @@
 from mpi4py import MPI
 import h5py
-import LATIS
-from LATIS.codes import halos
+from codes import halos
 import argparse
 
 def run_it(peaksfile, lmapfile, savefile):

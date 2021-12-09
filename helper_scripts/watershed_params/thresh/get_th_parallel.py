@@ -5,7 +5,6 @@ import time
 import h5py
 import argparse
 import os
-import LATIS
 
 def runit(n, th0, mock_file, true_file, DM_file, z, sigma, linking_contour, periodic_bound, savedir, coeff):
     """ Uses the minima.mtomo_partiion_v2() to get the labeled map and peaks for a sequence of value for
@@ -23,7 +22,7 @@ def runit(n, th0, mock_file, true_file, DM_file, z, sigma, linking_contour, peri
     tss = time.asctime()
     print('Rank =', rank, 'started!', tss, flush=True)
 
-    import LATIS.codes.minima as minima
+    import codes.minima as minima
     if periodic_bound :
         mode = 'wrap'
     else :

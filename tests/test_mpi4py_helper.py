@@ -1,6 +1,6 @@
 import numpy as np
 from  mpi4py import MPI
-import mpi4py_helper
+from codes import mpi4py_helper
 
 comm = MPI.COMM_WORLD
 size = comm.Get_size()
