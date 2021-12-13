@@ -1,7 +1,11 @@
-# codes to make a 3D map from the stored coordinates of DM progenitores
-# 1. Get the DM progenitor positions with progenitor_parallel.py (the mpi_submi file for submission)
-# 2. Run the MPI method here : organize_prog_map() to organize the data
-# 3. Run make_full_mesh() to make a sinlgle file containing the 3D map of the progenitors
+""" codes to make a 3D map from the stored coordinates of DM progenitores
+ This code requires clean-up. Many adresses are hard codded.
+ 1. Get the DM progenitor positions with progenitor_parallel.py (the mpi_submi
+ file for submission)
+ 2. Run the MPI method here : organize_prog_map() to organize the data
+ 3. Run make_full_mesh() to make a sinlgle file containing the 3D map of
+ the progenitors
+"""
 
 import glob
 import os

@@ -1,0 +1,15 @@
+axes.titlesize : 24
+axes.labelsize : 30
+font.family : serif
+legend.fontsize : 24
+patch.linewidth : 5
+lines.linewidth : 5
+lines.markersize : 10
+lines.marker : None
+xtick.labelsize : 26
+ytick.labelsize : 26
+figure.figsize :  10, 10
+mathtext.fontset : custom
+mathtext.rm : serif
+
+

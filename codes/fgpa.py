@@ -2,19 +2,25 @@
 
 - The code is MPI working on Illustris and MP-Gadget snapshots. The packages needed are :
 
-- astropy - fake_spectra
+    - astropy 
+    - fake_spectra
 
 To get the FGPA spectra, follow the steps below :
 
-1. From LATIS.codes.DensityField.get_Density_field use TNG() or MP-Gadget() to construct DM density field on a grid 
-  with desired size. For FGPA, the grid cells should on avergae have 1 particle per cell.
+1. From codes.get_density_field use TNG() or MP-Gadget() to construct DM density
+   field on a grid with desired size. For FGPA, the grid cells should on avergae 
+   have 1 particle per cell.
   
-2. Save the results from the previous step in savedir directory. The density has been save on several files depending on
-   number of ranks used. 
+2. Save the results from the previous step in savedir directory. The density 
+   has been saved on several files depending on number of ranks used. 
 
-3. Run get_noiseless_map() or get_sample_spectra() functions here with the same number of MPI ranks and pass the directories for the density field above as savedir argument. 
+3. Run get_noiseless_map() or get_sample_spectra() functions here with the same
+   number of MPI ranks and pass the directories for the density field above as 
+   savedir argument. 
 
-4. The output is a single hdf5 file containing either the full true flux map or the random spaectra sample. Note : In case your desired map is too large to fit on your memory, modify the last lines of the functions to store results of each rank separately. 
+4. The output is a single hdf5 file containing either the full true flux map or the
+   random spectra sample. Note : In case your desired map is too large to fit on your 
+   memory, modify the last lines of the functions to store results of each rank separately. 
 
 """
 
@@ -26,7 +32,9 @@ import fake_spectra.fluxstatistics as fs
 from . import spectra_mocking as sm
 
 
-def get_sample_spectra(MPI, z, num, seed=13, savedir='density_highres/', savefile='spectra_z2.4_FGPA_n1.hdf5',boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1):
+def get_sample_spectra(MPI, z, num, seed=13, savedir='density_highres/', 
+                       savefile='spectra_z2.4_FGPA_n1.hdf5',boxsize=205,
+                       Ngrids=205, Npix=205, SmLD=1, SmLV=1):
     """Get a sample of spectra to be used for mock map reconstruction
     z : redshift
     seed : rand seed to get x and y coordinates of the sample spectra 
@@ -38,16 +46,18 @@ def get_sample_spectra(MPI, z, num, seed=13, savedir='density_highres/', savefil
     # Initialize the MPI communication
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    tau_conv, xrank, yrank = get_tau_conv(comm=comm, z=z, savedir=savedir, boxsize=boxsize, Ngrids=Ngrids, SmLD=SmLD, SmLV=SmLV)
+    tau_conv, xrank, yrank = get_tau_conv(comm=comm, z=z, savedir=savedir,
+                                          boxsize=boxsize, Ngrids=Ngrids,
+                                          SmLD=SmLD, SmLV=SmLV)
     
     if seed is not None:
-       cofm =get_cofm(seed=seed, num=num, boxsize= tau_conv.shape[0]).astype(int)
+        cofm =get_cofm(seed=seed, num=num, boxsize= tau_conv.shape[0]).astype(int)
     else:
-       x, y = np.meshgrid(np.arange(Ngrids), np.arange(Ngrids))
-       cofm = np.zeros(shape=(Ngrids*Ngrids,2), dtype=int)
-       cofm[:,0] = np.ravel(x)
-       cofm[:,1] = np.ravel(y)
-       del x, y
+        x, y = np.meshgrid(np.arange(Ngrids), np.arange(Ngrids))
+        cofm = np.zeros(shape=(Ngrids*Ngrids,2), dtype=int)
+        cofm[:,0] = np.ravel(x)
+        cofm[:,1] = np.ravel(y)
+        del x, y
     
     tau_sampled = np.zeros(shape=(cofm.shape[0], tau_conv.shape[2]))
     xrank, yrank = np.arange(xrank[0], xrank[1]+1,1), np.arange(yrank[0], yrank[1]+1,1)
@@ -63,7 +73,7 @@ def get_sample_spectra(MPI, z, num, seed=13, savedir='density_highres/', savefil
     scale = fs.mean_flux(tau_sampled, mean_flux_desired=sm.get_mean_flux(z=z))
     tau_sampled *= scale
     if rank==0 :
-       print('Scaling tau with :', scale)
+        print('Scaling tau with :', scale)
     # Change cofm to kpc/h to record on spctra
     cofm  = cofm.astype(float)*(boxsize*1000/tau_conv.shape[0])
 
@@ -104,7 +114,8 @@ def get_cofm(seed, num, boxsize=205):
     cofm = boxsize*np.random.random_sample((num,3))
     return cofm
 
-def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.hdf5',boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1, mean_flux=None):
+def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.hdf5',
+                      boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1, mean_flux=None):
     """Calculate the true map on a mesh grid of size (Ngrids*Ngrids*Npix)
     z : redshift
     savedir :  the directory containing the density map
@@ -119,7 +130,7 @@ def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2
     # Fix the mean flux
     # This may not be accurate since mean flux on each data chunck is corrected seperately
     if mean_flux is None:
-       mean_flux = sm.get_mean_flux(z=z)
+        mean_flux = sm.get_mean_flux(z=z)
     scale = fs.mean_flux(tau_conv[xrank[0]:xrank[1]+1, yrank[0]:yrank[1]+1,:], mean_flux_desired=mean_flux)
     ### Resampling pixels along spectra
     flux_conv = resample_flux(scale*tau_conv, Npix)
@@ -149,7 +160,7 @@ def resample_flux(tau, Npix):
     addpix = int(Nz / Npix)
     flux = np.zeros(shape=(tau.shape[0], tau.shape[1], Npix), dtype=np.float64)
     for t in range(Npix):
-       flux[:,:,t] = np.sum(np.exp(-tau[:,:,t*addpix:(t+1)*addpix]), axis=2)/addpix 
+        flux[:,:,t] = np.sum(np.exp(-tau[:,:,t*addpix:(t+1)*addpix]), axis=2)/addpix 
     flux = gaussian_filter1d(flux, sigma=1, mode='wrap')
     return flux
 
@@ -181,18 +192,18 @@ def get_tau_conv(comm, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.h
         # Which sightlines are on this rank
         indx = np.where(np.isin(x, f['DM/x'][:]))[0]
         if indx.size == 0:
-           raise ValueError('The sightline coordinates are not on density grids!', flush=True)
+            raise ValueError('The sightline coordinates are not on density grids!', flush=True)
         xstart, xend = indx[0], indx[-1]
         indy = np.where(np.isin(y, f['DM/y'][:]))[0]
         if indy.size == 0:
-           raise ValueError('The sightline coordinates are not on density grids!', flush=True)
+            raise ValueError('The sightline coordinates are not on density grids!', flush=True)
 
         ystart, yend = indy[0], indy[-1]
         print('Sightlines on Rank =', rank, (int(xstart), int(xend)), (int(ystart), int(yend)) ,flush=True)
         # i, j are indices for the final flux map (Ngrids * Ngrids)
         for i in range(xstart, xend+1):
             if rank ==0:
-               print(str(int(100*(i-xstart)/indx.size))+'%', flush=True )
+                print(str(int(100*(i-xstart)/indx.size))+'%', flush=True )
             # Indices on f['DM/dens'] map
             ic = x[i] - f['DM/x'][0]
             for j in range(ystart, yend+1):
@@ -244,6 +255,3 @@ def get_Temp(Delta, T0=1.94*10**4, gamma=1.46):
         Delta : (1 + delta_b)
     """
     return T0*Delta**(gamma-1)
-
-
-

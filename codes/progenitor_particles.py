@@ -1,17 +1,14 @@
-# modules being used either by progenitor_parallel or induvidually to find any type (Gas/DM/BH) particles 
-#lied within center of the z~0 DM halos and write their cordinates at higher redhsift on files
+""" modules being used either by progenitor_parallel or induvidually to find any type (Gas/DM/BH) particles 
+    lied within center of the z~0 DM halos and write their cordinates at higher redhsift on files"""
 import h5py
 import numpy as np
 import illustris_python as il
 import time
 import os
-from .. import mpi4py_helper
-#from astropy.cosmology import Planck15 as cosmo
+import mpi4py_helper
 
-def get_clusters_low_z(min_mass = 10**4):
+def get_clusters_low_z(min_mass = 10**4, basepath='/lustre/scratch/mqezlou/TNG300-1/output'):
     """Script to write the position of z ~ 0 large mass halos on file """ 
-    
-    basepath='/lustre/scratch/mqezlou/TNG300-1/output'
     halos = il.groupcat.loadHalos(basepath,  98, fields=['GroupMass', 'GroupPos','Group_R_Crit200'])
     ind = np.where(halos['GroupMass'][:] > min_mass)
     with h5py.File('clusters_TNG300-1.hdf5','w') as f :
@@ -22,10 +19,10 @@ def get_clusters_low_z(min_mass = 10**4):
     return 0
 
 def get_center_part_IDs(MPI, basepath, PartType='BH', cluster_ind=0) :
-    """ Returns the IDs of the partcles within Group_R_Critic200 of the center of the halos at z= 0
+    """ Returns the IDs of the partcles within Group_R_Critic200 of the center of a halo at z= 0
         MPI : MPI communicator from mpi4py
         PartType : PartType of the particles of interest, 1 for DM
-        cluster_ind : the index to the group catalouge list for the desired halo
+        cluster_ind : the index to the group catalouge list for the halo of interest
     """ 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -38,13 +35,13 @@ def get_center_part_IDs(MPI, basepath, PartType='BH', cluster_ind=0) :
     parts = il.snapshot.loadHalo(basepath, snapNum=98, id=i, partType=PartType,fields = ['ParticleIDs','Coordinates'])
     parts_per_rank = int(parts['ParticleIDs'][:].size / size)
     if rank == size-1:
-       coordinates = parts['Coordinates'][(size-1)*parts_per_rank:-1]
-       ParticleIDs = parts['ParticleIDs'][(size-1)*parts_per_rank:-1]
+        coordinates = parts['Coordinates'][(size-1)*parts_per_rank:-1]
+        ParticleIDs = parts['ParticleIDs'][(size-1)*parts_per_rank:-1]
     else:
-       coordinates = parts['Coordinates'][rank*parts_per_rank : (rank+1)*parts_per_rank]
-       ParticleIDs = parts['ParticleIDs'][rank*parts_per_rank : (rank+1)*parts_per_rank]
+        coordinates = parts['Coordinates'][rank*parts_per_rank : (rank+1)*parts_per_rank]
+        ParticleIDs = parts['ParticleIDs'][rank*parts_per_rank : (rank+1)*parts_per_rank]
     if coordinates.size == 0:        
-       print('Rank ', rank, 'coordinates.size', coordinates.size, flush=True)
+        print('Rank ', rank, 'coordinates.size', coordinates.size, flush=True)
     halo_center = np.array([f['x'][i], f['y'][i], f['z'][i]]) 
     d =  coordinates - halo_center
     dist = np.sqrt(np.sum(d*d, axis=1))
@@ -61,43 +58,41 @@ def get_center_part_IDs(MPI, basepath, PartType='BH', cluster_ind=0) :
     IDs_all_ranks = np.empty(np.sum(IDs_size), dtype=np.uint)
     disp = np.zeros_like(IDs_size, dtype=np.int)
     for i in range(1, IDs_size.size):
-       disp[i] = np.sum(IDs_size[0:i])
-    #if rank == 0:
-       #print('IDs_size', IDs_size, flush=True)
-       #print('disp ', disp, flush=True)
+        disp[i] = np.sum(IDs_size[0:i])
     comm.Allgatherv(IDs, [IDs_all_ranks, tuple(IDs_size.astype(np.int)), tuple(disp.astype(np.int)), MPI.UNSIGNED_LONG])
-    #print('Rank :', rank, 'IDs_all_ranks', IDs_all_ranks, flush=True)
        
     f.close()
     return IDs_all_ranks
 
-def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, savedir, PartType=5, boxsize=205000, h=0.6774, Hz=247.26097145, axis=2, Nmesh=205):
-    """ (FOR TNG) Records the IDs and positions of the particles around center of z = 0 halos, the particles 
-          which also exist at higher z. Both arrays are saved. 
-        - Loops over all snapshot files and find the common particle amonf z=0 cluster and that snapshot.
-          Then, distributes the common particles among ranks to calculate the position of the partciles by adding
-          their peculiar velocity into it. Each rank saves the coordinates for each file on a seperate file. The output
-          can be loaded with HDFCatalog in nbodykit. 
-        - astropy breaks sometimes, so h and Hz are passed as arguments in this method 
+def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, savedir, PartType=5,
+                            boxsize=205000, h=0.6774, Hz=247.26097145, axis=2, Nmesh=205):
+    """ (FOR TNG) Traces back the particles around center of z = 0 halos to z=2.5. 
+        - Loops over all snapshot files and finds the common particle among z=0 cluster
+          and that snapshot at z=2.5. Then, distributes the common particles among ranks
+          to calculate their paositions by adding their peculiar velocity into it. 
+        - Then `get_density_map()` is called to make a density map of the progenitor 
+          particles. The temporary files in coord_dir are deleted at the end.
+        - `astropy` breaks sometimes, so h and Hz are passed as arguments in this method 
         
         Arguments :
         - MPI : mpi4py.MPI
-        - cluster_ind : The index to the cluster in the GroupCatalog
-        - basepath : path to the directory containing the snapshots
+        - cluster_ind : The index to the cluster of interest in the GroupCatalog
+        - basepath : path to the directory containing the simulation snapshots
         - fnames : A list of snapshot files
-        - coord_dir : The directory to write some temporary files on
+        - coord_dir : The directory to write some temp
         - h and Hz : 100*h and Hz are Hubble parameters at z=0 and z=z
-        - axis : The line of sight axis, the default is the xis=2
+        - axis : The line of sight axis, the default is the xis=2 (z-axis)
         - Nmesh : Number of mesh cells, total =  (Nmesh)**3
-        
+        - savedir : directory to save final DM density map of the desired progenitor
     """
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
     if rank==0:
-      print('Finding the central part_IDs', flush=True)
+        print('Finding the central part_IDs', flush=True)
     # Get the particle IDs belonging to the cluster
-    central_part_IDs = get_center_part_IDs(MPI=MPI, basepath=basepath, PartType=PartType, cluster_ind=cluster_ind)
+    central_part_IDs = get_center_part_IDs(MPI=MPI, basepath=basepath, 
+                                           PartType=PartType, cluster_ind=cluster_ind)
     if rank ==0:
         print('Central_prt_IDs found!', flush=True)
     #print('Rnak ', rank, 'central part IDs size ', central_part_IDs.size)
@@ -105,13 +100,13 @@ def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, saved
     x0,x1,x2 = np.array([]), np.array([]), np.array([])
     for fc, fn in enumerate(fnames):
         if rank==0:
-           print(str(int(100*((fc+1)/len(fnames))))+'%', flush=True )
+            print(str(int(100*((fc+1)/len(fnames))))+'%', flush=True )
         # Particle IDs at higher z on rank = rank
         try : 
-           f = h5py.File(fn, 'r')
+            f = h5py.File(fn, 'r')
         except OSError:
-           print('Snapshot is ', fn, 'and is not loaded')
-           raise 
+            print('Snapshot is ', fn, 'and is not loaded')
+            raise 
         IDs_highz = f['PartType'+str(PartType)]['ParticleIDs'][:]
         # Common IDs between z= 0 and the high z 
         _ ,ind_common_set, _ = np.intersect1d(IDs_highz, central_part_IDs, return_indices=True)
@@ -125,15 +120,15 @@ def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, saved
        
         #  Spread particles among ranks
         if rank==size-1:
-           ind_common_set = ind_common_set[rank*part_per_rank:-1]
+            ind_common_set = ind_common_set[rank*part_per_rank:-1]
         else:
-           ind_common_set = ind_common_set[rank*part_per_rank:(rank+1)*part_per_rank]
+            ind_common_set = ind_common_set[rank*part_per_rank:(rank+1)*part_per_rank]
         
         if ind_common_set.size==0:
            #print('Rank ', rank, 'fn ', fn, ' len(ind_comment_set) = 0', flush=True)
            continue
         else :
-           print('Rank ', rank, 'common indices on file ', fn, flush=True)
+            print('Rank ', rank, 'common indices on file ', fn, flush=True)
  
         ind_common_set = np.sort(np.unique(ind_common_set))
         ind_common_set = list(ind_common_set)
@@ -141,7 +136,9 @@ def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, saved
         common_coords =  f['PartType'+str(PartType)]['Coordinates'][ind_common_set]
         assert type(common_coords[0,0])== np.float32
         # Add peculiar velocity along the line of sight in units of kpc/h
-        common_coords[:,axis] = common_coords[:,axis] + (1000*(f['PartType'+str(PartType)]['Velocities'][ind_common_set, int(axis)]/(Hz*(1+z)**0.5))*h)
+        common_coords[:,axis] = common_coords[:,axis] + (1000*(f['PartType'
+                                                                 +str(PartType)]['Velocities'][ind_common_set,
+                                                                                               int(axis)]/(Hz*(1+z)**0.5))*h)
         commob_coords = (common_coords[:]%boxsize).astype(np.float32)
         assert type(common_coords[0,0]) is np.float32
         assert np.shape(common_coords)==(int(common_coords.size/3), 3)
@@ -153,11 +150,14 @@ def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, saved
         x1 = np.append(x1, common_coords[:,1])
         x2 = np.append(x2, common_coords[:,2])
     
-    x0all = mpi4py_helper.Allgatherv_helper(MPI=MPI, comm=comm, data=x0, data_type=np.float64)
+    x0all = mpi4py_helper.Allgatherv_helper(MPI=MPI, comm=comm,
+                                            data=x0, data_type=np.float64)
     comm.Barrier()
-    x1all = mpi4py_helper.Allgatherv_helper(MPI=MPI, comm=comm, data=x1, data_type=np.float64)
+    x1all = mpi4py_helper.Allgatherv_helper(MPI=MPI, comm=comm,
+                                            data=x1, data_type=np.float64)
     comm.Barrier()
-    x2all = mpi4py_helper.Allgatherv_helper(MPI=MPI, comm=comm, data=x2, data_type=np.float64)
+    x2all = mpi4py_helper.Allgatherv_helper(MPI=MPI, comm=comm,
+                                            data=x2, data_type=np.float64)
     comm.Barrier()
     del x0
     del x1
@@ -171,7 +171,10 @@ def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, saved
         del x1all
         common_coords[:,2] = x2all
         del x2all
-        with h5py.File(os.path.join(coord_dir, 'prog_coords_cluster'+str(cluster_ind)+'.hdf5'),'w') as fw:
+        with h5py.File(os.path.join(coord_dir,
+                                    'prog_coords_cluster'
+                                    +str(cluster_ind)
+                                    +'.hdf5'),'w') as fw:
            # In cKpc/h
            fw['PartType1/Position'] = common_coords[:]
     comm.Barrier()
@@ -182,7 +185,8 @@ def get_part_coord_parallel(MPI, cluster_ind, basepath, fnames, coord_dir, saved
 
 def get_density_map(cluster_ind, coord_dir, savedir, Nmesh=205, boxsize=205000):
     """
-    Reads the progenitor DM coordinates have been written on file earlier via progenitor_particles()
+    Reads the progenitor DM coordinates have been written on file earlier via 
+    progenitor_particles()
     - This method is using MPI feature in nbodykit
     - coord_dir : The directory in which the coordinates are saved
     - savedir : The directory to save the full density map
@@ -195,7 +199,7 @@ def get_density_map(cluster_ind, coord_dir, savedir, Nmesh=205, boxsize=205000):
     comm = nk.CurrentMPIComm.get()
 
     if not os.path.isdir(coord_dir):
-       raise FileNotFoundError('Directory '+coord_dir+' does not exist!')
+        raise FileNotFoundError('Directory '+coord_dir+' does not exist!')
 
     cat = HDFCatalog(os.path.join(coord_dir,'prog_coords_cluster'+str(cluster_ind)+'.hdf5'), dataset='PartType1')
     #print('Rank ', comm.rank, ' cat.size: ', cat.size)
@@ -211,6 +215,50 @@ def get_density_map(cluster_ind, coord_dir, savedir, Nmesh=205, boxsize=205000):
     # Make the full density map
     comm.Allreduce(nk.MPI.IN_PLACE, density_full, op=nk.MPI.SUM)
     if comm.rank == 0:
-       with h5py.File(os.path.join(savedir,'map_PC_prog'+str(cluster_ind)+'.hdf5'),'w') as fw:
+        with h5py.File(os.path.join(savedir,'map_PC_prog'+str(cluster_ind)+'.hdf5'),'w') as fw:
             fw.create_dataset('DM', data=density_full)
             fw.create_dataset('num_parts', data=[cat.size,])
+
+def get_cofm(savefile='./LyTomo_data/progenitors/cofm_progenitors.hdf5', L=205):
+    """ A code to find the Center of Mass of each individual progenitor """
+    from scipy.ndimage import label
+    X, Y, Z, cluster_id = np.array([]), np.array([]), np.array([]),np.array([])
+    with h5py.File('./clusters_TNG300-1.hdf5','r') as f:
+        ind = np.where((f['Mass'][:]>10**3.75) * (f['Mass'][:]<10**4.0))[0]
+  # interate over cluster progenitors
+    a = np.append(np.arange(248),ind[1::])
+    for j in a:
+        new_num_features = 0
+        with h5py.File('./prog_maps/map_PC_prog_R200_cluster'+str(j)+'.hdf5','r') as f:
+            m = (f['map'][:]*f['num_parts'][()]/(205**3))
+        labeled_array, num_features = label(m[:] > 0 )
+        xcm, ycm, zcm, num_parts = np.array([]), np.array([]), np.array([]), np.array([])
+        # interate over all islands a cluster progenitors is spread over (Peridoc boundary condition)
+        # breaks cluster progenitor into pieces
+        for i in range(num_features):
+            indp = np.where(labeled_array==i+1)
+            num_parts= np.append(num_parts, np.sum(m[indp]))
+            xcm= np.append(xcm, np.sum(indp[0]*m[indp])/num_parts[-1])
+            ycm= np.append(ycm, np.sum(indp[1]*m[indp])/num_parts[-1])
+            zcm= np.append(zcm, np.sum(indp[2]*m[indp])/num_parts[-1])
+        # Take care of periodic boundary condition to get Center Of Mass
+        if num_features > 1:
+            if np.any(xcm > L/2)*np.any(xcm < L/2):
+                ind = np.where(xcm < L/2)
+                xcm[ind] += L
+            if np.any(ycm > L/2)*np.any(ycm < L/2):
+                ind = np.where(ycm < L/2)
+                ycm[ind] += L
+            if np.any(zcm > L/2)*np.any(zcm < L/2):
+                ind = np.where(zcm < L/2)
+                zcm[ind] += L
+        # Store the center of mass for entire inividual cluster progenitors
+        X = np.append(X, (np.sum(xcm*num_parts)/np.sum(num_parts))%L)
+        Y = np.append(Y, (np.sum(ycm*num_parts)/np.sum(num_parts))%L)
+        Z = np.append(Z, (np.sum(zcm*num_parts)/np.sum(num_parts))%L)
+        cluster_id = np.append(cluster_id, j)
+    with h5py.File(savefile, 'w') as fw:
+        fw['x'] = X
+        fw['y'] = Y
+        fw['z'] = Z
+        fw['cluster_id'] = cluster_id

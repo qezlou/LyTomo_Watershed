@@ -51,7 +51,7 @@ def plot_flux_pdf_v3(ax, lratio, z_range, filename, label, over_sigma=True) :
     for i in range(len(sigma)):
         hist_all = np.zeros(shape=(mock_num*npiece,np.size(mbins)))
         # LATIS
-        mL = get_latis_map(latis_file='./spectra/maps/mapsv13/dcv13map.dat', map_version=13, z_range=z_range, sigma=sigma[i])
+        mL = get_latis_map(latis_file='../spectra/maps/mapsv13/dcv13map.dat', map_version=13, z_range=z_range, sigma=sigma[i])
         mL = np.ravel(mL)
         if over_sigma :
             histl = np.histogram(np.ravel(mL/(np.std(mL))), bins=bins, density=True)[0]
@@ -218,7 +218,7 @@ def plot_pdf_Wiener_filtered(z_range, linear=True,sigma= None,mapfile=[], color=
 
     return ax_main, ax_res
 
-def get_latis_map(latis_file = './spectra/maps/mapsv13/dcv13map.dat', map_version = 13, z_range=[2.2, 2.8], sigma=None):
+def get_latis_map(latis_file = '../spectra/maps/mapsv13/dcv13map.dat', map_version = 13, z_range=[2.2, 2.8], sigma=None):
     """
     A helper function to load the LATIS map. It is masking the edges and un-observed regions
     latis_file : Path to latis map
