@@ -5,7 +5,7 @@ The repository for reproducing the results in [Qezlou-Newman-Rudie-Bird 2021](ht
 
 ### Cookbook :
 
-There is a step-by-step cookbook in `LyTomo-Watershed/CookBook.ipynb`
+There is a step-by-step cookbook in [CookBook.ipynb`](https://github.com/mahdiqezlou/LyTomo-Watershed/blob/main/CookBook.ipynb)
 
 ### Requirements :
 
