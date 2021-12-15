@@ -25,23 +25,24 @@ Please, review the imported packages in each section. A complete list is :
 - The generated data are available here [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5770883.svg)](https://doi.org/10.5281/zenodo.5770883). 
 - Refer to the `CookBook.ipynb` and other notebooks to see which data you need at each step. 
 - A clear descitption of each file is provided on the Zenodo website. 
+
 - The data should be in a directory named `LyTo_data` outside this repository. So, it should look like this:
 
-	```
-	./LyTomo-Wtershed/
-             codes/
-             *.ipynb
-        ./LyTomo_data/
-	     descendants/
-             mock_maps_z2.4/
-             ...
-	```
+```
+./LyTomo-Wtershed/
+     codes/
+     *.ipynb
+./LyTomo_data/
+     descendants/
+     mock_maps_z2.4/
+     ...
+```
 
 - You can use `get_data.py` script to download the files from the shell.
 
      1. Get your access token from [here](https://zenodo.org/account/settings/applications/tokens/new/)
      
-     2. To downlaod all the compressed files, rund this on your shell:
+     2. To downlaod all the compressed files, run this on your shell:
      ```
      python get_data.py -t "Your ACCESS TOKEN"
      ```
@@ -50,7 +51,7 @@ Please, review the imported packages in each section. A complete list is :
     ```
      python get_data.py -t "Your ACCESS TOKEN" -f 'descendats.zip'
      ```
-     3. Don't forget to decompress the files in `./LyTomo_data`
+     3. Don't forget to decompress the downloaded files.
 
 If you have any questions please send me an email : mahdi.qezlou@email.ucr.edu or raise an issue here!
 
