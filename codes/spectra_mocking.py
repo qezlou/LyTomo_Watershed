@@ -484,8 +484,8 @@ def get_deltaF(spec_res, savefile='randspectra_120.hdf5', CNR=None, CE= None, MF
     print('True MF:', mean_flux_desired)
     if MF_corr :
         NHI = np.sum(ps.get_col_density(elem='H', ion=1), axis=1)
-        ind = np.where(NHI < 10**19.)[0]
-        flux = correct_mean_flux(tau=tau, ind=ind, mean_flux_desired=mean_flux_desired)
+        ind = np.where(NHI < 10**19.)
+        flux = correct_mean_flux(tau=tau, mean_flux_desired=mean_flux_desired, ind=ind)
     else:
         flux=np.exp(-tau)
     print('after corre:', np.mean(flux)) 
@@ -535,12 +535,12 @@ def get_deltaF_v2(specfile, res, spec_res, addpix=int(10), CNR=None, CE=None, MF
             # If HI density is recorded, do not use the high column density 
             # sightlines for fixing the mean flux. 
             NHI = spec_file['colden/H/1'][:]
-            ind = np.where(np.sum(NHI,axis=1)<10**19)[0]
+            ind = np.where(np.sum(NHI,axis=1)<10**19)
         except (KeyError, np.AxisError, AttributeError):
             # It is only for FGPA spectra, as we do not know the exact HI density
-            ind = np.ones(shape=(spec_file['tau/H/1/1215'][:].shape[0],), dtype='bool')
+            ind = np.ones_like(spec_file['tau/H/1/1215'][:], dtype=bool)
         mean_flux_desired = get_mean_flux(z=spec_file['Header'].attrs['redshift'])
-        flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][:], ind=ind, mean_flux_desired=mean_flux_desired)
+        flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][:], mean_flux_desired=mean_flux_desired, ind=ind)
     
     from scipy.ndimage.filters import gaussian_filter1d
     flux = gaussian_filter1d(flux, spec_res, axis=-1, mode='wrap')
@@ -591,7 +591,7 @@ def get_mean_flux(z, metal=False) :
         # The below is good for only HI absorptions, does not include metal absorption
         return np.exp(-0.001330*(1+z)**4.094)
 
-def correct_mean_flux(tau, ind, mean_flux_desired):
+def correct_mean_flux(tau, mean_flux_desired, ind=None):
     """ returns the corrected flux to have a desired mean flux
     arguments:
     tau : optical depth BEFORE adding noise to it
@@ -601,8 +601,11 @@ def correct_mean_flux(tau, ind, mean_flux_desired):
     returns: The flux after scaling the optical depth to have mean_flux_desired = <e^(-scale * tau)>
 
     """
-    scale = fstat.mean_flux(tau[ind,:], mean_flux_desired)
-
+    if ind is not None:
+        scale = fstat.mean_flux(tau[ind], mean_flux_desired)
+    else :
+        scale = fstat.mean_flux(tau, mean_flux_desired)
+        
     flux = np.exp(-scale * tau)
 
     return flux
@@ -880,7 +883,8 @@ def convolve_1D(flux, sigma):
         flux[i,:] = fftconvolve(flux[i,:], k, mode='same')
     return flux 
 
-def get_noiseless_uniform_grid_map(spec_file, savefile, boxsize=205,noise = False, res=None, spec_res=0, xdim=1, ydim=1,lines=None, MF_corr=True):
+def get_noiseless_uniform_grid_map(spec_file, savefile, boxsize=205,noise = False, res=None, spec_res=0,
+                                   xdim=1, ydim=1,lines=None, MF_corr=True, tau_scale=None):
     """spec_file : The address to file contaning the spectra (fake_spectra output)
        savefile : The final file you want to save the map on
        boxsize : in cMpc/h
@@ -911,9 +915,12 @@ def get_noiseless_uniform_grid_map(spec_file, savefile, boxsize=205,noise = Fals
         mean_flux_desired = get_mean_flux(z=f['Header'].attrs['redshift'])
         print('mean_flux before correction =', np.mean(np.exp(-tau)))
         if MF_corr :
-            NHI = np.sum(f['colden/H/1'][:], axis=1)
-            ind = np.where(NHI < 10**19.)[0]
-            flux = correct_mean_flux(tau=tau, ind=ind, mean_flux_desired=mean_flux_desired)
+            if tau_scale is not None:
+                flux = np.exp(-tau_scale*tau)
+            else:
+                NHI = np.sum(f['colden/H/1'][:], axis=1)
+                ind = np.where(NHI < 10**19.)
+                flux = correct_mean_flux(tau=tau, mean_flux_desired=mean_flux_desired, ind=ind)
         else :
             flux = np.exp(- tau)
         print('after correc= ', np.mean(flux))
@@ -948,9 +955,9 @@ def _get_flux_true(specfile, addpix):
     ps = PS(num = 1, base='./', savedir='', savefile=specfile)
     spec_file = h5py.File(specfile, 'r')
     NHI = spec_file['colden/H/1'][:]
-    ind = np.where(np.sum(NHI,axis=1)<10**19)[0]
+    ind = np.where(np.sum(NHI,axis=1)<10**19)
     mean_flux_desired = get_mean_flux(z=spec_file['Header'].attrs['redshift'])
-    flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][:], ind=ind, mean_flux_desired=mean_flux_desired)
+    flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][:], mean_flux_desired=mean_flux_desired, ind=ind)
     # Check if the last pixel is fixed
     L = np.shape(flux)[1]
     t = np.arange(0,L+1,addpix)

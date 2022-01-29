@@ -115,7 +115,7 @@ def get_cofm(seed, num, boxsize=205):
     return cofm
 
 def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.hdf5',
-                      boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1, mean_flux=None):
+                      boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1, fix_mean_flux=True):
     """Calculate the true map on a mesh grid of size (Ngrids*Ngrids*Npix)
     z : redshift
     savedir :  the directory containing the density map
@@ -127,14 +127,17 @@ def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     tau_conv, xrank, yrank = get_tau_conv(comm=comm, z=z, savedir=savedir, boxsize=boxsize, Ngrids=Ngrids, SmLD=SmLD, SmLV=SmLV)
+    
     # Fix the mean flux
     # This may not be accurate since mean flux on each data chunck is corrected seperately
-    if mean_flux is None:
+    if fix_mean_flux and (xrank!=0) and (yrank!=0):
         mean_flux = sm.get_mean_flux(z=z)
-    scale = fs.mean_flux(tau_conv[xrank[0]:xrank[1]+1, yrank[0]:yrank[1]+1,:], mean_flux_desired=mean_flux)
+        scale = fs.mean_flux(tau_conv[xrank[0]:xrank[1]+1, yrank[0]:yrank[1]+1,:], mean_flux_desired=mean_flux)
+    else :
+        scale = 1
     ### Resampling pixels along spectra
     flux_conv = resample_flux(scale*tau_conv, Npix)
-        
+
     ### MPI part
     # Make sure the data is contiguous in memeory
     flux_conv = np.ascontiguousarray(flux_conv, np.float64)
@@ -187,17 +190,27 @@ def get_tau_conv(comm, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.h
         dvbin = cosmo.H(z).value*boxsize/(cosmo.h*Nz*(1+z))
         up = np.arange(Nz)*dvbin
         tau_conv = np.zeros(shape=(Ngrids, Ngrids, Nz))
-        # Position of the desired sightlines
+        # Approx position of the desired sightlines. The approximation should be ok
+        # for FGPA since the density map has very fine voxels
         x, y = int(Nz/Ngrids)*np.arange(Ngrids), int(Nz/Ngrids)*np.arange(Ngrids)
         # Which sightlines are on this rank
         indx = np.where(np.isin(x, f['DM/x'][:]))[0]
         if indx.size == 0:
-            raise ValueError('The sightline coordinates are not on density grids!', flush=True)
+            # Some ranks may not hold any sightlines at all
+            print('The sightline coordinates are not on density grids on rank=', 
+                  rank, flush=True)
+            print("The y desnity grid coordinates are = ", f['DM/y'][:], flush=True)
+            return tau_conv, [0,0], [0,0]
+        
         xstart, xend = indx[0], indx[-1]
         indy = np.where(np.isin(y, f['DM/y'][:]))[0]
         if indy.size == 0:
-            raise ValueError('The sightline coordinates are not on density grids!', flush=True)
-
+            # Some ranks may not hold any sightlines at all
+            print('The sightline coordinates are not on density grids on rank=', 
+                  rank, flush=True)
+            print("The y desnity grid coordinates are = ", f['DM/y'][:], flush=True)
+            return tau_conv, [0,0], [0,0]
+        
         ystart, yend = indy[0], indy[-1]
         print('Sightlines on Rank =', rank, (int(xstart), int(xend)), (int(ystart), int(yend)) ,flush=True)
         # i, j are indices for the final flux map (Ngrids * Ngrids)
@@ -229,6 +242,8 @@ def get_tau_conv(comm, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.h
                     dvel[indv] = dvbin*Nz - dvel[indv]
                     Voight = (1/btherm)*np.exp(-(dvel/btherm)**2)
                     tau_conv[i,j,k] = np.sum(tau_real*Voight*dvbin)
+        comm.Barrier()
+        print('Rank', rank, 'is done with tau_conv', flush=True)
         return tau_conv, [xstart,xend], [ystart,yend]
     
 def get_tau_real(Delta, z):
@@ -244,7 +259,7 @@ def get_nHI(Delta, gamma=1.46):
     """ Calculate Neutral Hydrogen Density
         The amplitude needs to get fixed with mean flux
     """
-    return Delta*(2-0.7*(gamma -1))
+    return Delta**(2-0.7*(gamma -1))
 
 def get_btherm(Delta, mp=1.67*10**(-27), kB=1.38*10**(-23)):
     """ Thermal Doppler parameter in km/s"""
