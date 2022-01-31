@@ -5,6 +5,7 @@
    some ranks would not overlap with any sightline.
    There are ways to improve this if needded later."""
 import argparse
+import lytomo_watershed
 
 def get_density_field(snaps, savedir, Nmesh):
     """First you need to make a density map on a grid with average
@@ -14,7 +15,7 @@ def get_density_field(snaps, savedir, Nmesh):
         savedir: The path to directory to save the density files in
         Nmesh: Number of mesh voxles along each axis, the density map would be of shape 
         (Nmesh, Nmesh, Nmesh)"""
-    from codes import get_density_field
+    from lytomo_watershed import get_density_field
     get_density_field.TNG(snaps=snaps, savedir=savedir, Nmesh=Nmesh, zspace=False, momentumz=True, 
                           parttype=['PartType1'])
 
@@ -28,7 +29,7 @@ def get_noiseless_map(z, savedir, savefile, boxsize=205, Ngrids=410, Npix=1780):
         Ngrids: Number of grids required along the transverse direction
         Npix : Number of pixels along the line of sight
     """
-    from codes import fgpa
+    from ltw import fgpa
     from mpi4py import MPI
     fgpa.get_noiseless_map(MPI, z=z, savedir=savedir, 
                            savefile=savefile, boxsize=boxsize, Ngrids=Ngrids,
@@ -36,7 +37,7 @@ def get_noiseless_map(z, savedir, savefile, boxsize=205, Ngrids=410, Npix=1780):
     
 def iterate_over_SmLV():
     """Not being used regularly"""
-    from codes import fgpa
+    from ltw import fgpa
     from mpi4py import MPI
     SmLD = int(1)
     comm = MPI.COMM_WORLD
@@ -48,7 +49,7 @@ def iterate_over_SmLV():
 
 def iterate_over_SmLD():
     """Not being used regularly"""
-    from codes import fgpa
+    from ltw import fgpa
     from mpi4py import MPI
     SmLV = int(1)
     comm = MPI.COMM_WORLD
