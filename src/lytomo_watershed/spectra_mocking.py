@@ -856,96 +856,7 @@ def get_spec_res(z=2.2, spec_res=2.06, pix_size=1.8):
 
     return(pix_size*conv_fac, spec_res*conv_fac)
 
-
-def convolve(m, sigma):
-    """Smooth a map with a gaussian kernel
-    Borrowed from Drew Newman
-    m : The Dahcshuund generated map
-    sigma : the sigma of the kernel
-    returns : the smoothed map
-    """
-    rad = np.ceil(3*sigma).astype(int)
-    xx = np.linspace(-rad, rad, 2*rad+1)
-    x, y, z = np.meshgrid(xx, xx, xx)
-    k = np.exp(-0.5*(x**2 + y**2 + z**2) / sigma**2)
-    k /= np.sum(k)
-    return fftconvolve(m, k, mode='same')
-
-
-def convolve_1D(flux, sigma):
-    """ Smooth bunch of spectra in the z direction
-    """
-    rad = np.ceil(3*sigma).astype(int)
-    x = np.linspace(-rad, rad, 2*rad+1)
-    k = np.exp(-0.5*(x*x)/sigma**2)
-    k /= np.sum(k)
-    for i in range(flux.shape[0]):
-        flux[i,:] = fftconvolve(flux[i,:], k, mode='same')
-    return flux 
-
-def get_noiseless_uniform_grid_map(spec_file, savefile, boxsize=205,noise = False, res=None, spec_res=0,
-                                   xdim=1, ydim=1,lines=None, MF_corr=True, tau_scale=None):
-    """spec_file : The address to file contaning the spectra (fake_spectra output)
-       savefile : The final file you want to save the map on
-       boxsize : in cMpc/h
-       noise : Add noise or not
-       res : Only if noise=True, Pixel Width
-       spec_ress : Only if noise=True, Spectral resolution
-       xdim , ydim : The dimensions of the map along the transverse direction
-       lines : Only if noise = True
-       MF_Corr : Whether to correct the mean flux or not
-    """
-    f = h5py.File(spec_file, 'r')
-    box = int(f['Header'].attrs['box']/1000)
-    #x_dim, y_dim, z_dim  = 1+int(2*np.max(f['spectra/cofm'][:,0])/1000), 1+int(2*np.max(f['spectra/cofm'][:,1])/1000) , int(f['Header'].attrs['nbins'])
-    zdim = int(f['Header'].attrs['nbins'])
-    if noise:
-        #xes Pick 2% of them as Quasars
-        np.random.seed(94)
-        QSO = np.random.randint(0, lines, size=int(0.02*lines))
-        CNR = get_CNR(lines=lines, z=f['Header'].attrs['redshift'], QSO=QSO)
-        CE = get_CE(CNR)
-        m, _ = get_deltaF(savefile=spec_file,res = 104,  spec_res=spec_res, lines=lines, CE=CE, CNR =CNR, MF_corr=MF_corr)
-        m = m.reshape(xdim, ydim, zdim)
-        # I  am not sure why, but plottong the map says I need an (x,y) transpose
-        for z in range(0,int(boxsize/vox_size)):
-            m[:,:,z] = m[:,:,z].T
-    else :
-        tau = f['tau']['H']['1']['1215'][:]
-        mean_flux_desired = get_mean_flux(z=f['Header'].attrs['redshift'])
-        print('mean_flux before correction =', np.mean(np.exp(-tau)))
-        if MF_corr :
-            if tau_scale is not None:
-                flux = np.exp(-tau_scale*tau)
-            else:
-                NHI = np.sum(f['colden/H/1'][:], axis=1)
-                ind = np.where(NHI < 10**19.)
-                flux = correct_mean_flux(tau=tau, mean_flux_desired=mean_flux_desired, ind=ind)
-        else :
-            flux = np.exp(- tau)
-        print('after correc= ', np.mean(flux))
-        print('desired = ', mean_flux_desired)
-        flux = np.ravel(flux)
-        NHI_map = np.ravel(f['colden/H/1'][:])
-        m = (flux/np.mean(flux)) -1
-        flux = flux.reshape(xdim,ydim,zdim)
-        m = m.reshape(xdim,ydim,zdim)
-        NHI_map = NHI_map.reshape(xdim,ydim,zdim)
-        # I  am not sure why, but plotting the map says I need an (x,y) transpose
-        for z in range(0, zdim):
-            flux[:,:,z] = flux[:,:,z].T
-            m[:,:,z] = m[:,:,z].T
-            NHI_map[:,:,z] = NHI_map[:,:,z].T
-        if savefile is not None:
-            with h5py.File(savefile, 'w') as ftrue :
-                ftrue['flux'] = flux
-                ftrue['map'] = m
-                ftrue['NHI'] = NHI_map
-                ftrue['redshift'] = f['Header'].attrs['redshift']
-        else:
-            return m
-
-def _get_flux_true(specfile, addpix):
+def _get_flux_noiseless(specfile, addpix):
     """ A helper for get_true_map_v2() 
     It is almost identical to get_deltaF_v2() for mock maps
     specfile : spectra file for the true spectra
@@ -976,15 +887,15 @@ def _get_flux_true(specfile, addpix):
     return new_flux, new_NHI
 
 
-def get_true_map_v2(specfile, addpix, savefile, boxsize=205, trans_sep=1.0):
-    """Write a 3D matrix for the true map, with averaing consecutive pixels along each specttum
+def get_noiseless_uniform_grid_map(specfile, addpix, savefile, boxsize=205, trans_sep=1.0):
+    """Write a 3D matrix for the noiseless map, with averaing consecutive pixels along each specttum
     - specfile : The raw spectra generated with fake_spectra
     - addpix : the number of consecutive pixels to be averaged over
     - savefile : The hdf5 file name to save the result in
     - trans_sep : the transverse separation between sightlines in cMpc/h
     """
     f = h5py.File(specfile,'r')
-    flux, NHI = _get_flux_true(specfile,addpix)
+    flux, NHI = _get_flux_noiseless(specfile,addpix)
     tdim= int(boxsize/trans_sep)
     flux = np.ravel(flux)
     NHI_map = np.ravel(NHI)
