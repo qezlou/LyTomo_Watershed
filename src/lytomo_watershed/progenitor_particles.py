@@ -5,7 +5,7 @@ import numpy as np
 import illustris_python as il
 import time
 import os
-import mpi4py_helper
+from . import mpi4py_helper
 
 def get_clusters_low_z(min_mass = 10**4, basepath='/lustre/scratch/mqezlou/TNG300-1/output'):
     """Script to write the position of z ~ 0 large mass halos on file """ 

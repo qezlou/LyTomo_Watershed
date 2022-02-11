@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import imageio
 from scipy.ndimage import gaussian_filter as gf
-import spectra_mocking as sm
-import minima
-import load_data
+from . import spectra_mocking as sm
+from . import  minima
+from . import load_data
 
 class Paint:
     """ A class to paint stoughs on flux map """

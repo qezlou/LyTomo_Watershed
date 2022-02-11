@@ -528,7 +528,7 @@ def get_deltaF_v2(specfile, res, spec_res, addpix=int(10), CNR=None, CE=None, MF
     MF_corr : If true, correct the mean flux of the spectra
     domask : If true, mask strong absorbtions along the spectrum
     """
-    ps = PS(res=res, num = 1, base='./', savedir='', savefile=specfile, res=None)
+    ps = PS(res=res, num = 1, base='./', savedir='', savefile=specfile)
     spec_file = h5py.File(specfile, 'r')
     if MF_corr:
         try :
