@@ -1,16 +1,20 @@
-import codes.get_density_field as get_density_field
+import lytomo_watershed
 import argparse
-def runit(z, snap):
-    get_density_field.TNG(snaps='/lustre/scratch/mqezlou/TNG300-1/output/snapdir_0'+str(snap)+'/snap_0'+str(snap)+'.*', savedir='./results_'+str(z)+'/',Nmesh=205, zspace=True, momentumz=True)
+
+def runit(snaps, savedir, Nmesh):
+    from lytomo_watershed import get_density_field
+    get_density_field.TNG(snaps=snaps, savedir=savedir,Nmesh=Nmesh, zspace=True, momentumz=True)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--z', type=float, required=True, help='e.g. z=2.4')
-    parser.add_argument('--snap', type=int, required=True, help='snap number')
-    args = parser.parse_args()
-    runit(z=args.z, snap=args.snap)
+    parser.add_argument('--snaps', type=str, required=True, help='adress to snapshots in globe pattern, like "./snap_0*"')
+    parser.add_argument('--savedir', type=str, required=True, help='the dir to save the results of each rank in')
+    parser.add_argument('--Nmesh', type=int, required=True, help='Number of mesh cells along each axis')
     
+    args = parser.parse_args()
+    runit(snaps=args.snaps, savedir=args.savedir, Nmesh=args.Nmesh)
+      
 
 

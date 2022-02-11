@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#SBATCH --partition=SHARED
+#SBATCH --job-name=FgDens300
+#SBATCH --time=02:00:00
+#SBATCH --nodes=8
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=6
+#SBATCH --mem=MaxMemPerNode
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+#export I_MPI_FABRICS=shm
+module load gnu7
+module load gsl
+module load mpich
+
+mpirun python3.6 run_FGPA.py --func 'density' --snaps '/lustre/scratch/mqezlou/TNG300-1/DM-only/snap_028/snap_028.*' --savedir './DM_only/snap_028/' --Nmesh 1366
+#mpirun python3.6 run_FGPA.py --func 'map' --z 2.5772902716018935 --savedir '../DM_only/snap_028/' --savefile 'FGPA_z2.6_1.0.hdf5' --boxsize 205 --Ngrids 205 --Npix 205
+
+
+
+
+

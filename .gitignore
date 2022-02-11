@@ -1,2 +1,6 @@
 .ipynb_checkpoints/
 codes/__pycache__/
+src/lytomo_watershed/__pycache__/
+build/
+dist/
+src/lytomo_watershed.egg-info/
