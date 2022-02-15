@@ -607,3 +607,20 @@ def convert_Delta_Msol_ph(z, volume=1):
     import astropy.units as u
     
     return (cosmo.critical_density(z=z).to(u.solMass/u.Mpc**3)*(1/(1+cosmo.Ob0/cosmo.Om0))*((1*u.Mpc/((1+z)*cosmo.h))**3)).value
+
+
+def get_islands(thresh=-2.0, sigma=4):
+    """Get the simple contours (islands) with df/sigma < thresh
+       It is used for visualization
+    Retrun : A 3D map where voxels are labeled by the islands tag number"""
+    from scipy.ndimage import label
+    from scipy.ndimage import gaussian_filter as gf
+    import os
+    data_dir = '/run/media/mahdi/HD2/Lya/LyTomo_data/'
+    
+    mock_map = np.fromfile(os.path.join(data_dir, 'mock_maps_z2.4/map_TNG_z2.4_n1.dat')).reshape(205,205,205)
+    mock_map = gf(mock_map, sigma, mode='wrap')
+    mock_map /= np.std(mock_map)
+    contours, _ = label(mock_map < thresh)
+    contorus = boundary_condition_label(contours)    
+    return contorus

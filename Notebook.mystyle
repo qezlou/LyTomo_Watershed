@@ -1,5 +1,5 @@
 axes.titlesize : 24
-axes.labelsize : 30
+axes.labelsize : 35
 font.family : serif
 legend.fontsize : 24
 patch.linewidth : 5
