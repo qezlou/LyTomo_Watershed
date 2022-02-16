@@ -4,12 +4,9 @@ import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter as gf
-#import spectra_mocking as sm
 import imageio
-#from paint_map import Paint
 import matplotlib
-#import mass_calcs
-#import minima
+
 from scipy.ndimage.filters import gaussian_filter
 def plot_2D(m, sigma=4., figname='Base2', boxsize=60):
     ''' Takes a 3D Mesh of the log(density/Nmesh) field. It can be found using mesh.preview() method in NbodyKit '''
@@ -698,7 +695,9 @@ def watershed_Rsigma(mockmap, boxsize=205, sigma=4, levels=[-2], thresh=-2):
     
     for z in range(boxsize): plot_func(z)
 
-def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title='', vmin=-2.5, vmax=-1.3, sigma=4, markersize= 150, lmap= None, islands=None, ax_label=['x','y'], colorbar=True, legend=True):
+def prog_parts_paper(fig, ax, volume, peaks, DM_prog_all, all_clusters, fcofm, lmap= None, mock_map=None, 
+                     roll= (0,0,0), title='', vmin=-2.5, vmax=-1.3, sigma=4, markersize= 150, islands=None,
+                     ax_label=['x','y'], colorbar=True, legend=True, boxsize=205):
     """A modified version of prog_parts() for the fugure in paper
     - volume : A boolean array with shape of the map, but True only for the slice we want to illlustrate. In one direction,
     it should a slice of size 1 (we want to draw 2D planes here)
@@ -707,8 +706,6 @@ def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title
     - roll : tuple of size 3, Default=(0,0,0). If the object of interest is along the edge, roll all maps with this vector. The argument
     "volume" should be in the new coordinates. 
     """
-    
-    DM_prog_all = h5py.File('./progenitors/Full_prog_map.hdf5','r')['DM'][:]
     DM_prog_all = np.roll(DM_prog_all, roll)
     ind_volume = np.where(volume)
     shape = np.array([np.unique(ind_volume[0]).size, np.unique(ind_volume[1]).size, np.unique(ind_volume[2]).size])
@@ -718,20 +715,21 @@ def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title
     for f in frame :
         dim.append((ind_volume[f][0], ind_volume[f][-1]))
     
-    # Limit the range of variation for plotting purposses
-    DM_prog_all = gf(DM_prog_all, sigma=sigma , mode='wrap')
-    ind = DM_prog_all == 0
-    DM_prog_all[ind] = 1e-10
-    DM_prog_all = np.log10(DM_prog_all)
-
-    all_clusters = h5py.File('clusters_TNG300-1.hdf5','r')
-    fcofm = h5py.File('cofm_progenitors.hdf5','r')
     if mock_map is None :
         cmap = plt.get_cmap('jet')
-        im = ax.imshow(np.squeeze(DM_prog_all[volume].reshape(shape[frame])), extent=[dim[1][0],dim[1][1],dim[0][0],dim[0][1]], origin='lower', cmap=cmap, interpolation='bilinear', vmin=vmin, vmax=vmax)
+        # Limit the range of variation for plotting purposses
+        DM_prog_all = gf(DM_prog_all, sigma=sigma , mode='wrap')
+        ind = DM_prog_all == 0
+        DM_prog_all[ind] = 1e-10
+        DM_prog_all = np.log10(DM_prog_all)
+        im = ax.imshow(np.squeeze(DM_prog_all[volume].reshape(shape[frame])), 
+                       extent=[dim[1][0],dim[1][1],dim[0][0],dim[0][1]], origin='lower', 
+                       cmap=cmap, interpolation='bilinear', vmin=vmin, vmax=vmax)
     else :
         cmap = plt.get_cmap('jet').reversed()
-        im = ax.imshow(np.squeeze(mock_map[volume].reshape(shape[frame])), extent=[dim[1][0],dim[1][1],dim[0][0],dim[0][1]], origin='lower', cmap=cmap, interpolation='bilinear', vmin=vmin, vmax=vmax)
+        im = ax.imshow(np.squeeze(mock_map[volume].reshape(shape[frame])), 
+                       extent=[dim[1][0],dim[1][1],dim[0][0],dim[0][1]], origin='lower',
+                       cmap=cmap, interpolation='bilinear', vmin=vmin, vmax=vmax)
     
     # Draw contours of flux
     def _plot_contours(contours, color='darkgray'):
@@ -742,7 +740,9 @@ def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title
         x = np.arange(dim[1][0],dim[1][1]+1)
         y = np.arange(dim[0][0],dim[0][1]+1)
         xx, yy = np.meshgrid(x,y)
-        ax.contour(xx, yy, np.squeeze(contours[volume].reshape(shape[frame])), levels=np.arange(.1, np.unique(contours).size), origin='lower', colors=color, linewidths=2)
+        ax.contour(xx, yy, np.squeeze(contours[volume].reshape(shape[frame])),
+                   levels=np.arange(.1, np.unique(contours).size), origin='lower',
+                   colors=color, linewidths=2)
         
     if islands is not None:
         _plot_contours(islands, color='b')    
@@ -753,7 +753,7 @@ def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title
     def _plot_points(x, y, z, marker, s, edgecolor, label, facecolor="None", alpha=1.0):
         """A helper function to plot cofm of ptogenitors or the absorption peaks"""
         coords = np.zeros((x.size, 3))
-        coords = (coords[:] + np.array(roll))%(DM_prog_all.shape[0])
+        coords = (coords[:] + np.array(roll))%(boxsize)
         coords[:,0], coords[:,1], coords[:,2] = x, y, z
         axis = np.where(shape == 1)[0][0]
         axis_coord = np.unique(ind_volume[axis])
@@ -766,23 +766,30 @@ def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title
         mask *=  coords[:,frame[1]] <= np.unique(ind_volume[frame[1]])[-1]
         if legend is False :
             label=None
-        ax.scatter(coords[mask,frame[1]], coords[mask,frame[0]], marker=marker, s=s, edgecolor=edgecolor, label=label, facecolor= facecolor, alpha=alpha)
+        ax.scatter(coords[mask,frame[1]], coords[mask,frame[0]], marker=marker, s=s,
+                   edgecolor=edgecolor, label=label, facecolor= facecolor, alpha=alpha)
         del coords
     
     # Plot absorption peaks
-    _plot_points(peaks['x'][:], peaks['y'][:], peaks['z'][:],  marker='x', s=markersize, edgecolor='lime', facecolor='lime',
+    _plot_points(peaks['x'][:], peaks['y'][:], peaks['z'][:],  marker='x', s=markersize,
+                 edgecolor='lime', facecolor='lime',
                  label='Absorption peaks')
     # Plot Progenitor cofm
     masses = all_clusters['Mass'][:][fcofm['cluster_ind'][:].astype(int)]
-    ind1, ind2, ind3 = np.where(masses<10**4.0), np.where((masses < 10**4.5)*(masses > 10**4.0)), np.where(masses > 10**4.5)
-    _plot_points(fcofm['x'][:][ind1], fcofm['y'][:][ind1], fcofm['z'][:][ind1],  marker='D', s=int(markersize*0.3),
-                 edgecolor='orchid', label=r'$\mathrm{ 10^{13.5} \ M_{\odot}/h < M(z=0) < 10^{14} \ M_{\odot}/h }$')
-    _plot_points(fcofm['x'][:][ind2], fcofm['y'][:][ind2], fcofm['z'][:][ind2],  marker='D', s=int(markersize*0.6),
-                 edgecolor='cyan', label=r'$\mathrm{10^{14} \ M_{\odot}/h < M(z=0) < 10^{14.5} \ M_{\odot}/h}$')
-    _plot_points(fcofm['x'][:][ind3], fcofm['y'][:][ind3], fcofm['z'][:][ind3],  marker='D', s=markersize, edgecolor='w',
-                 label=r'$\mathrm{10^{14.5} \ M_{\odot}/h < M(z=0)  }$')
+    ind1, ind2, ind3 = (np.where(masses<10**4.0), 
+                        np.where((masses < 10**4.5)*(masses > 10**4.0)),
+                        np.where(masses > 10**4.5))
+    
+    _plot_points(fcofm['x'][:][ind1], fcofm['y'][:][ind1], fcofm['z'][:][ind1],  marker='D',
+                 s=int(markersize*0.3), edgecolor='orchid', 
+                 label=r'$\mathrm{ 10^{13.5} \ M_{\odot}/h < M(z=0) < 10^{14} \ M_{\odot}/h }$')
+    _plot_points(fcofm['x'][:][ind2], fcofm['y'][:][ind2], fcofm['z'][:][ind2],  marker='D', 
+                 s=int(markersize*0.6), edgecolor='cyan',
+                 label=r'$\mathrm{10^{14} \ M_{\odot}/h < M(z=0) < 10^{14.5} \ M_{\odot}/h}$')
+    _plot_points(fcofm['x'][:][ind3], fcofm['y'][:][ind3], fcofm['z'][:][ind3],
+                 marker='D', s=markersize, edgecolor='w', label=r'$\mathrm{10^{14.5} \ M_{\odot}/h < M(z=0)  }$')
 
-    ax.set_title(title, fontsize='medium')
+    ax.set_title(title, y=1.0, pad=-14, bbox=dict(facecolor='w', alpha=1.0))
 
     if len(ax_label)==0:
         ax.set_xticks([])
@@ -796,14 +803,19 @@ def prog_parts_paper(fig, ax, volume, peaks, mock_map=None, roll= (0,0,0), title
                 ax.set_yticks([])
         if 'y' in ax_label:
             ax.set_ylabel('cMpc/h', fontsize=30)
-            #ax.set_yticks(np.arange(0,110,50))
+            #ax.set_yticks(np.arange(0,t110,50))
             if len(ax_label)==1:
                 ax.set_xticks([])
 
     if colorbar :
-        cb = fig.colorbar(im , ax=ax, orientation='horizontal', fraction=0.047, pad=0.01)
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+        axins = inset_axes(ax, width="100%", height="100%",  bbox_to_anchor=(1.2,0.25, 0.1, 1.5), 
+                           bbox_transform=ax.transAxes)
+        cb_ticks_pos = 'left'
+        cb = fig.colorbar(im, cax=axins, orientation='vertical')
+        #cb = fig.colorbar(im , cax=cax, ax=ax, orientation='vertical', fraction=0.06, pad=0.1)
         #cb.ax.tick_params(labelsize=30, width=5, length=10)
-        cb.set_label(r'$log_{10} (\rho_m / \bar{\rho}_m)$')
+        cb.set_label(r'$\mathrm{\frac{\delta_F^{sm} }{ \delta_{map}}}$', fontsize=40)
     #if legend :
     #    plt.legend(loc='upper center', bbox_to_anchor=(0.5,1.05), ncol=4, fontsize=20, facecolor='darkgray')
 

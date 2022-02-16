@@ -32,22 +32,20 @@ or cloning this repo and :
 ### Generated Data
 
 - The generated data are available here [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5770883.svg)](https://doi.org/10.5281/zenodo.5770883). 
-- Refer to the `CookBook.ipynb` and other notebooks to see which data you need at each step. 
+- Refer to the `notebooks/CookBook.ipynb` and other notebooks to see which data you need at each step. 
 - A clear descitption of each file is provided on the Zenodo website. 
 
 - You can use `get_data.py` script to download the files from the shell.
 
      1. Get your access token from [here](https://zenodo.org/account/settings/applications/tokens/new/)
      
-     2. To downlaod all the compressed files, run this on your shell:
+     2. To downlaod any of the compressed files, run :
      ```
-     python get_data.py -t "Your ACCESS TOKEN"
-     ```
-     If you want to download a particular compressed file, pass the file name like this :
-
+     import lytomo_watershed
+     from lytomo_watershed import get_data
+     get_data.download(token="YOUR_ACESS_TOKEN", data_dir='./', file='descendant.zip')
+     # Set file=None, to downlaod everything
     ```
-     python get_data.py -t "Your ACCESS TOKEN" -f 'descendats.zip'
-     ```
      3. Don't forget to decompress the downloaded files.
 
 If you have any questions please send me an email : mahdi.qezlou@email.ucr.edu or raise an issue here!

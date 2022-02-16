@@ -1,0 +1,3 @@
+[submodule "src/illustris_python"]
+	path = src/lytomo_watershed/illustris_python
+	url = https://github.com/illustristng/illustris_python.git

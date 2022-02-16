@@ -2,10 +2,10 @@
     lied within center of the z~0 DM halos and write their cordinates at higher redhsift on files"""
 import h5py
 import numpy as np
-import illustris_python as il
 import time
 import os
 from . import mpi4py_helper
+from . import illustris_python as il
 
 def get_clusters_low_z(min_mass = 10**4, basepath='/lustre/scratch/mqezlou/TNG300-1/output'):
     """Script to write the position of z ~ 0 large mass halos on file """ 
@@ -262,3 +262,31 @@ def get_cofm(savefile='./LyTomo_data/progenitors/cofm_progenitors.hdf5', L=205):
         fw['y'] = Y
         fw['z'] = Z
         fw['cluster_id'] = cluster_id
+
+def make_full_prog_map(save=False, force_compute=False):
+    """Create a map containing all progenitors"""
+    import glob
+    import os
+    data_dir = '/run/media/mahdi/HD2/Lya/LyTomo_data/'
+    savefile = os.path.join(data_dir,'progenitor_maps/Full_prog_map.hdf5')
+    ### Do not calculate it, if you already have it
+    if os.path.exists(savefile) and not force_compute:
+        return h5py.File(savefile,'r')['DM'][:]
+    else :    
+        map_pc_prog_files = os.path.join(data_dir,'progenitor_maps/map_PC_prog*.hdf5')
+        fnames = glob.glob(map_pc_prog_files)
+        DM_full = np.zeros(shape=(205,205,205))
+        for fn in fnames:
+            with h5py.File(fn,'r') as f:
+                DM_prog = f['DM'][:]
+                num_parts = f['num_parts'][()]
+                # There is a hack here, number of progenitors on each file is only the number on rank=0
+                # So, we need to correct that by multiplying ti by number of ranks used in generating the 
+                # progenitor maps, It is easy solve but since it is only used for visualization, 
+                #the accuracy is good enough. There is an issue raised on GitHub to solve this later.
+                DM_prog *=  (48*num_parts) / (2500**3)
+                DM_full += DM_prog
+        if save:
+            with h5py.File(savefile,'w') as fw:
+                fw['DM'] = DM_full     
+        return DM_full

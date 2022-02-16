@@ -115,7 +115,7 @@ def get_cofm(seed, num, boxsize=205):
     return cofm
 
 def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.hdf5',
-                      boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1, fix_mean_flux=True):
+                      boxsize=205, Ngrids=205, Npix=205, SmLD=1, SmLV=1, fix_mean_flux=True, mean_flux=None):
     """Calculate the true map on a mesh grid of size (Ngrids*Ngrids*Npix)
     z : redshift
     savedir :  the directory containing the density map
@@ -131,7 +131,9 @@ def get_noiseless_map(MPI, z, savedir='density_highres/', savefile='FGPA_flux_z2
     # Fix the mean flux
     # This may not be accurate since mean flux on each data chunck is corrected seperately
     if fix_mean_flux and (xrank!=0) and (yrank!=0):
-        mean_flux = sm.get_mean_flux(z=z)
+        if mean_flux is None:
+            mean_flux = sm.get_mean_flux(z=z)
+        print('mean flux is ', mean_flux, flush=True)
         scale = fs.mean_flux(tau_conv[xrank[0]:xrank[1]+1, yrank[0]:yrank[1]+1,:], mean_flux_desired=mean_flux)
     else :
         scale = 1
