@@ -32,7 +32,7 @@ or cloning this repo and :
 ### Generated Data
 
 - The generated data are available here [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5770883.svg)](https://doi.org/10.5281/zenodo.5770883). 
-- Refer to the `CookBook.ipynb` and other notebooks to see which data you need at each step. 
+- Refer to the `notebooks/CookBook.ipynb` and other notebooks to see which data you need at each step. 
 - A clear descitption of each file is provided on the Zenodo website. 
 
 - You can use `get_data.py` script to download the files from the shell.
