@@ -35,9 +35,9 @@ or cloning this repo and :
 - Refer to the `notebooks/CookBook.ipynb` and other notebooks to see which data you need at each step. 
 - A clear descitption of each file is provided on the Zenodo website. 
 
-- You can use `get_data.py` script to download the files from the shell.
+- You can use `get_data.py` script to download the files in your notebook:
 
-     1. Get your access token from [here](https://zenodo.org/account/settings/applications/tokens/new/)
+     1. Get your Zenodo access token from [here](https://zenodo.org/account/settings/applications/tokens/new/)
      
      2. To downlaod any of the compressed files, run :
      ```

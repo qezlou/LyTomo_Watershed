@@ -6,11 +6,10 @@ import os
 import time
 from . import illustris_python as il
 from . import mpi4py_helper
-basepath='/lustre/scratch/mqezlou/TNG300-1/output'
 
-def parts_within_halos( PartType):
+
+def parts_within_halos( PartType, basepath):
     """ takes halos and returns PartType particles withing them  """
-    basepath='/lustre/scratch/mqezlou/TNG300-1/output'
     f = h5py.File('./halos/massive_halos.hdf5','r')
     countour_id = []
     for i in range(f['HaloID'][:].size): 
@@ -28,9 +27,8 @@ def parts_within_halos( PartType):
     return part_id, part_pos, contour_id, halo_id 
         
 
-def find_corres_halo(PartType):
+def find_corres_halo(PartType, basepath):
     """ I do not remember the funcionality of this method"""
-    basepath='/lustre/scratch/mqezlou/TNG300-1/output'
     part_id, part_pos, contour_id, halo_id = parts_within_halos(PartType)
     halos = il.groupcat.loadHalos(basepath, 98, fields=['GroupMass', 'SubhaloGrNr','Group_R_Crit200'])
     massive_ind = np.where(halos['GroupMass'] >= 100)[0]
@@ -50,15 +48,13 @@ def find_corres_halo(PartType):
         #ind = np.less_equal(np.sqrt(np.sum((halos['SubhaloGrNr'][:] - part_pos[i])**2, axis=1 )), halos['Group_R_Crit200'][:] )
     return desc_halo_mass, contour_id_f, halo_id
     
-def find_roots(MPI, snap, savefile, halos_file, subhalos, basepath='/lustre/scratch/mqezlou/TNG300-1/output'):
-
+def find_roots(MPI, snap, savefile, halos_file, subhalos, basepath):
     """Finds the root descendant subhaloInd, it's mass and the corresponding FOF Group mass of the sub/halos file from z ~2.5 passed to it
        An MPI code.
        halos_file : A list of all halos or subhalos at snapshot = snap
        subhalos : Boolean. True if the halos_file are subhalos, False if they are halos
        savefile : The output file name
     """
-    
     # MPI initializations
     comm = MPI.COMM_WORLD
     rank = int(comm.Get_rank())
