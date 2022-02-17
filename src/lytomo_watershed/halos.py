@@ -5,12 +5,12 @@ from astropy.cosmology import Planck15 as cosmo
 from scipy.ndimage.filters import gaussian_filter
 from . import minima
 from . import mpi4py_helper
-basepath='/lustre/scratch/mqezlou/TNG300-1/output' 
 
 
 
-def highz_halos(MPI, comm, peaks, m=None ,snap=29, lmap= None,savefile=None, mass_thresh=None, z=2.3161107439568918, boxsize=205, linking_contour=-2.0, sigma=4, min_radius=None):
-    """ Get the halos with mass > mass_thresh around each peak within a volume whihc is union of labele passed to the function and a spehre of radius minrad"""
+
+def highz_halos(MPI, comm, peaks, basepath, m=None ,snap=29, lmap= None,savefile=None, mass_thresh=None, z=2.3161107439568918, boxsize=205, linking_contour=-2.0, sigma=4, min_radius=None):
+    """ Get the halos with mass > mass_thresh around each peak within a volume whihc is union of labels passed to the function and a spehre of radius minrad"""
     # Get the flux contours
     from scipy.ndimage import label
     # if labeled map is not provided, use the
@@ -101,12 +101,14 @@ def highz_halos(MPI, comm, peaks, m=None ,snap=29, lmap= None,savefile=None, mas
     else :
         return massive_ind, PeakIDs, massive_mass
     
-def highz_subhalos(MPI, comm, peaks, snap, lmap, savefile=None, mass_thresh=0, z=2.3161107439568918, boxsize=205, linking_contour=-2.0, sigma=4, min_radius=None):
+def highz_subhalos(MPI, comm, peaks, snap, lmap, basepath, savefile=None, mass_thresh=0, z=2.3161107439568918, boxsize=205, linking_contour=-2.0, sigma=4, min_radius=None):
     """ Get the suhalos with mass > mass_thresh around each peak within a volume which is union of labele passed to
     the function and a spehre of radius minrad. This is the actual function we use rather highz_halos().
     peaks and lmap : HDF5 files we get from minima.motmo_partition_v2()
     mass_thresh : record subhalos with mas slarger than this
     min_radius : Determines the minimum volume around peaks to look for subhalos
+    basepath : The pathto the simulation output directory, we followe the recommended organization in TNG website. The 
+                directory path should  look like this : `~/TN G300-1/output`
     """
     # Get all subhalos at high z
     subhalos = il.groupcat.loadSubhalos(basepath, snap, fields=['SubhaloMass', 'SubhaloPos','SubhaloVel'])
