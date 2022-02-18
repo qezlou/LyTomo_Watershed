@@ -4,10 +4,14 @@ font.family : serif
 legend.fontsize : 24
 patch.linewidth : 5
 lines.linewidth : 5
-lines.markersize : 10
+lines.markersize : 20
 lines.marker : None
 xtick.labelsize : 26
 ytick.labelsize : 26
+xtick.major.size: 7     # major tick size in points
+xtick.minor.size: 4       # minor tick size in points
+ytick.major.size: 7     # major tick size in points
+ytick.minor.size: 4       # minor tick size in points
 figure.figsize :  10, 10
 mathtext.fontset : custom
 mathtext.rm : serif
