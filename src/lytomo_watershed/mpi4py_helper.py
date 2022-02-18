@@ -55,3 +55,20 @@ def Allgatherv_helper(MPI, comm, data, data_type):
     comm.Allgatherv(data, [data_all_ranks, tuple(data_size_ranks.astype(int)), tuple(disp.astype(np.int)), mpi_type])
     return data_all_ranks
 
+def distribute_files(comm, fnames):
+    """Distribute a list of files among available ranks
+    comm : MPI communicator
+    fnames : a list of file names
+    Returns : A list of files for each rank
+    """
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    num_files = len(fnames)
+    files_per_rank = int(num_files/size)
+    #a list of file names for each rank
+    fnames_rank = fnames[rank*files_per_rank : (rank+1)*files_per_rank]
+    # Some ranks get 1 more snaphot file
+    remained = int(num_files - files_per_rank*size)
+    if rank in range(1,remained+1):
+        fnames_rank.append(fnames[files_per_rank*size + rank-1 ])
+    return fnames_rank
