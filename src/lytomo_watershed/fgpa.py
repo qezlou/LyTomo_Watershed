@@ -238,7 +238,8 @@ def get_tau_conv(comm, z, savedir='density_highres/', savefile='FGPA_flux_z2.4.h
                     # Peculiar velocity addition
                     ind = np.where((dens != 0))
                     vel_pec = np.zeros_like(f['DM/pz'][ic,jc,:])
-                    vel_pec[ind] = f['DM/pz'][ic,jc,:][ind]/(dens[ind]*np.sqrt(1+z))
+                    # Convert momentum to velocity
+                    vel_pec[ind] = f['DM/pz'][ic,jc,:][ind]/dens[ind]
                     vel_pec = gaussian_filter1d(vel_pec, SmLV)
                     dens = gaussian_filter1d(dens, SmLD)
                     u0 = up + vel_pec
