@@ -47,14 +47,14 @@ def TNG(snaps='/lustre/scratch/mqezlou/TNG300-1/output/snapdir_029/snap_029.*', 
            if zspace :
               ## peculiar velocity correction
               # Old Dask used in nbodykit does not accept elemnt-wise assignment, so we need to project V_pec along z 
-              cat['Coordinates'] = (cat['Coordinates'] + (1000*cosmo.h/(cosmo.H(z).value*(1+z)**0.5))*cat['Velocities']*[0,0,1])%boxsize
+              cat['Coordinates'] = (cat['Coordinates'] + (1000*cosmo.h*np.sqrt(1+z)/cosmo.H(z).value)*cat['Velocities']*[0,0,1])%boxsize
 
            print('Rank ', comm.rank, ' cat,size= ', cat.size, flush=True)
            mesh = cat.to_mesh(Nmesh=Nmesh, position='Coordinates')
            dens = mesh.compute()
            if momentumz :
               # Average line-of-sight velocity in each voxel
-              cat['Vz'] = cat['Velocities'][:,2]
+              cat['Vz'] = cat['Velocities'][:,2]/np.sqrt(1+z)
               mesh_momen = cat.to_mesh(Nmesh=Nmesh, position='Coordinates', value='Vz')
               pz = mesh_momen.compute()
            L = np.arange(0, Nmesh, 1)
