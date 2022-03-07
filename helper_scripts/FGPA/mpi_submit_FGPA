@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH --partition=SHARED
-#SBATCH --job-name=FgDens300
+#SBATCH --partition=OBS
+#SBATCH --job-name=FgRob
 #SBATCH --time=02:00:00
 #SBATCH --nodes=8
 #SBATCH --ntasks-per-node=4
@@ -14,8 +14,8 @@ module load gnu7
 module load gsl
 module load mpich
 
-mpirun python3.6 run_FGPA.py --func 'density' --snaps '/lustre/scratch/mqezlou/TNG300-1/DM-only/snap_028/snap_028.*' --savedir './DM_only/snap_028/' --Nmesh 1366
-#mpirun python3.6 run_FGPA.py --func 'map' --z 2.5772902716018935 --savedir '../DM_only/snap_028/' --savefile 'FGPA_z2.6_1.0.hdf5' --boxsize 205 --Ngrids 205 --Npix 205
+#mpirun python3.6 run_FGPA.py --func 'density' --snaps '/lustre/scratch/mqezlou/TNG100-1/output/DM_only/snapdir_033/snap_033.*' --savedir './density_real/' --Nmesh 1800
+mpirun python3.6 run_FGPA.py --func 'map' --z 2.0020281392528516 --savedir './density_real/' --savefile './FGPA_TNG100_z2.0_0.25Mpc_ourFGPA.hdf5' --boxsize 75 --Ngrids 300 --Npix 300
 
 
 

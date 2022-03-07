@@ -863,7 +863,7 @@ def _get_flux_noiseless(specfile, addpix):
     addpix : number of consecutive pixels need to be summed
     to get the desired resolution
     """
-    ps = PS(num = 1, base='./', savedir='', savefile=specfile)
+    ps = PS(num = 1, base='./', savedir='', savefile=specfile, res=None)
     spec_file = h5py.File(specfile, 'r')
     NHI = spec_file['colden/H/1'][:]
     ind = np.where(np.sum(NHI,axis=1)<10**19)
