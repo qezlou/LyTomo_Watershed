@@ -29,11 +29,12 @@ def get_noiseless_map(z, savedir, savefile, boxsize=205, Ngrids=410, Npix=1780):
         Ngrids: Number of grids required along the transverse direction
         Npix : Number of pixels along the line of sight
     """
-    from lytomo_watershed import fgpa
+    from lytomo_watershed.fgpa import Fgpa
     from mpi4py import MPI
-    fgpa.get_noiseless_map(MPI, z=z, savedir=savedir, 
-                           savefile=savefile, boxsize=boxsize, Ngrids=Ngrids,
-                           Npix=Npix, SmLD=1, SmLV=1, fix_mean_flux=True)
+    comm = MPI.COMM_WORLD
+    fgpa = Fgpa(MPI=MPI, comm=comm, z=z, savedir=savedir, boxsize=boxsize, Ngrids=Ngrids,
+                Npix=Npix, SmLD=1, SmLV=1, fix_mean_flux=True)
+    fgpa.get_noiseless_map(savefile=savefile)
     
 def iterate_over_SmLV():
     """Not being used regularly"""
