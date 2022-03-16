@@ -47,10 +47,10 @@ def runit(n, th0, mock_file, true_file, DM_file, z, sigma, linking_contour, peri
     print('kappa = ', th, 'nu = ', lc, flush=True)
     for i in range(3):
         coeff[i]=float(coeff[i])
-    peaks_mock, lmap_mock = minima.mtomo_partition_v2(mapconv=mock, DMconv=DMconv, z_acc=2.4442257045541464, coeff=coeff, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
+    peaks_mock, lmap_mock = minima.mtomo_partition(mapconv=mock, DMconv=DMconv, z_acc=2.4442257045541464, coeff=coeff, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
     print('Start Working on true maps!', flush=True)
     if true_file != 'None':
-        peaks_true, lmap_true = minima.mtomo_partition_v2(mapconv=mtrue, DMconv=DMconv, z_acc=2.4442257045541464, coeff=None, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
+        peaks_true, lmap_true = minima.mtomo_partition(mapconv=mtrue, DMconv=DMconv, z_acc=2.4442257045541464, coeff=None, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
 
     #Write on hdf5 files
     fname = os.path.join(savedir,'labeled_map_TNG_z'+str(z)+'_n'+str(int(n))+'_sigma'+str(sigma)+'_th'+str(th)[1:5].ljust(4,'0')+'_lc'+str(lc)[0:4].ljust(4,'0')+'.hdf5')
