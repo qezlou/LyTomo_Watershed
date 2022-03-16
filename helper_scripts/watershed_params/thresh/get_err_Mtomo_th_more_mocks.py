@@ -1,10 +1,11 @@
 """Find the Error in Mtomo for many mocks and save the data on an hdf5 file"""
+import os
 import h5py
-from LATIS.codes import mpi4py_helper
+from lytomo_watershed import mpi4py_helper
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import importlib
-
+import argparse
 def get_id_max_overlap(lmap_mock, lmap_true):
     """Slightly improved compared to the one used for old plots of Mtomo vs Mtomo. In this case,
     the minima in the labeled map are not numbered in order, so we can miss some numbers in between.
@@ -33,32 +34,32 @@ def get_id_max_overlap(lmap_mock, lmap_true):
     id_max_overlap['true'].astype(int); id_max_overlap['mock'].astype(int)
     return id_max_overlap
 
-def get_err_Mtomo(n, th_range, z, sigma, lc):
+def get_err_Mtomo(n, th_range, z, sigma, lc, data_dir):
 
     err_Mtomo_th = []
     mad_th = []
     dev_all = []
     
-    
     for th in np.round(th_range,2):
         #print(th)
-        with h5py.File('../LyTomo_data/watersheds_z'+str(z)+'/mocks/n'+str(n)
-                       +'/labeled_map_TNG_z'+str(z)+'_n'+str(n)+'_sigma4_th'
-                       +str(np.around(th,2)).ljust(4,'0')+'_lc'
-                       +str(np.around(lc,2)).ljust(4,'0')
-                       +'.hdf5','r') as f:
-            lmap_mock = f['map'][:]
-        with h5py.File('../LyTomo_data/watersheds_z'+str(z)+'/noiseless/labeled_map_TNG_true_z'
-                       +str(z)+'_n1_sigma4_th'+str(np.around(th,2)).ljust(4,'0')+'_lc'
-                       +str(np.around(lc,2)).ljust(4,'0')+'.hdf5','r') as f :
-            lmap_true = f['map'][:]
-        peaks_mock = h5py.File('../LyTomo_data/watersheds_z'+str(z)+'/mocks/n'
-                               +str(n)+'/peaks_TNG_z'+str(z)+'_n'+str(n)
-                               +'_sigma4_th'+str(np.around(th,2)).ljust(4,'0')
-                               +'_lc'+str(np.around(lc,2)).ljust(4,'0')+'.hdf5', 'r')
-        peaks_true = h5py.File('../LyTomo_data/watersheds_z'+str(z)+'/noiseless/peaks_TNG_true_z'
-                           +str(z)+'_n1_sigma4_th'+str(np.around(th,2)).ljust(4,'0')
-                           +'_lc'+str(np.around(lc,2)).ljust(4,'0')+'.hdf5','r')
+        lmap_mock = h5py.File(os.path.join(data_dir,'watersheds_z'+str(z)+'/mocks/n'+str(n)
+                                           +'/labeled_map_TNG_z'+str(z)+'_n'+str(n)+'_sigma'+str(sigma)+'_th'
+                                           +str(np.around(th,2)).ljust(4,'0')+'_lc'
+                                           +str(np.around(lc,2)).ljust(4,'0')
+                                           +'.hdf5'),'r')['map'][:]
+
+        lmap_true =  h5py.File(os.path.join(data_dir,'watersheds_z'+str(z)
+                                            +'/noiseless/labeled_map_TNG_true_z'+str(z)+'_n1_sigma'+str(sigma)+'_th'
+                                            +str(np.around(th,2)).ljust(4,'0')+'_lc'
+                                            +str(np.around(lc,2)).ljust(4,'0')+'.hdf5'),'r')['map'][:]
+                               
+        peaks_mock = h5py.File(os.path.join(data_dir,'watersheds_z'+str(z)+'/mocks/n'
+                                            +str(n)+'/peaks_TNG_z'+str(z)+'_n'+str(n)
+                                            +'_sigma'+str(sigma)+'_th'+str(np.around(th,2)).ljust(4,'0')
+                                            +'_lc'+str(np.around(lc,2)).ljust(4,'0')+'.hdf5'), 'r')
+        peaks_true = h5py.File(os.path.join(data_dir,'watersheds_z'+str(z)+'/noiseless/peaks_TNG_true_z'
+                                            +str(z)+'_n1_sigma'+str(sigma)+'_th'+str(np.around(th,2)).ljust(4,'0')
+                                            +'_lc'+str(np.around(lc,2)).ljust(4,'0')+'.hdf5'),'r')
         
         id_max_overlap = get_id_max_overlap(lmap_mock, lmap_true)
         mtomo_mock = peaks_mock['mtomo'][:]
@@ -86,25 +87,33 @@ if __name__== '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
-    sigma=4
-    z=2.4
-    lc=2.00
-    th_range = np.around(np.arange(2.00,2.90, 0.05),2)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--z', type=float, default=2.4, help='redshift')
+    parser.add_argument('--sigma', type=int, default=4, help='The smoothing scale')
+    parser.add_argument('--thstart', type=float, default=[2.0,2.90], help='The limits of the thresh range')
+    parser.add_argument('--thend', type=float, default=[2.0,2.90], help='The limits of the thresh range')
+    parser.add_argument('--lc', type=float, default=2.0, help='Linking contour')
+    parser.add_argument('--data_dir', type=str, default='./', help='Path to the directory stroting the data')
+    args = parser.parse_args()
 
-    
+    th_range = np.around(np.arange(args.thstart,args.thend, 0.05),2)
+
     nrange = np.arange(1,21,1)
     n_rank = mpi4py_helper.distribute_array(MPI, comm, nrange)
     
     results = np.zeros(shape=(nrange.size, th_range.size))
     for n in n_rank:
         print('n ='+str(n), flush=True)
-        err_Mtomo_th, mad_th, dev_all_th  = get_err_Mtomo(n=n, th_range=th_range, z=z, sigma=sigma, lc=lc)
+        err_Mtomo_th, mad_th, dev_all_th  = get_err_Mtomo(n=n, th_range=th_range, 
+                                                          z=args.z, sigma=args.sigma, lc=args.lc,
+                                                         data_dir= args.data_dir)
         results[int(n-1)] = err_Mtomo_th
     comm.Barrier()
     comm.Allreduce(MPI.IN_PLACE, results, op=MPI.SUM)
 
     if rank==0 :
-        fw = h5py.File('../LyTomo_data/plotting_data/error_Mtomo_mocks_z'+str(z)+'_sigma'+str(sigma)+'.hdf5','w')
+        fw = h5py.File(os.path.join(args.data_dir,'plotting_data/error_Mtomo_mocks_z'+str(args.z)
+                                    +'_sigma'+str(args.sigma)+'.hdf5'),'w')
         fw['Mtomo_err'] = results
         
 

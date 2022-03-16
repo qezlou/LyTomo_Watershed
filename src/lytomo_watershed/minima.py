@@ -1,142 +1,9 @@
-# Borrowed from Drew Newman
+# Modified version of the code borrowed from Drew Newman
 import numpy as np
 import scipy 
 from scipy.ndimage import gaussian_filter
 from scipy.ndimage import label
 import h5py
-
-def get_minima(cube, map_file,exclude_radius=12.0, thresh=-3, domaxima=False):
-    # Find local minima in CUBE within spheres of radius EXCLUDE_RADIUS.
-    # In other words, if multiple minima are located near one another (within
-    # such a sphere), only take the lower. This is an ad hoc way to merge
-    # blended peaks into one. It is very simple and is not necessarily splitting
-    # structures in the same way that a halo finder or something would do.
-    from scipy.ndimage import maximum_filter
-    s = 2*exclude_radius + 1
-    z, y, x = np.ogrid[0:s,0:s,0:s]
-    r = np.sqrt((x - exclude_radius)**2 + (y - exclude_radius)**2 + (z - exclude_radius)**2)
-    mask = (r <= exclude_radius)
-    if not domaxima:
-        if map_file=='obs': 
-            minima = -maximum_filter(-cube, footprint=mask, mode='constant', cval=0)
-        else :
-            # Periodic Boundary condition
-            minima = -maximum_filter(-cube, footprint=mask, mode='wrap')
-        loc = np.where((cube == minima) & (cube <= thresh))
-    else:
-        if map_file=='obs':
-            maxima = maximum_filter(cube, footprint=mask, mode='constant', cval=0)
-        else :
-            # Periodic Boundary condition
-            maxima = maximum_filter(cube, footprint=mask, mode='wrap')
-        loc = np.where((cube == maxima) & (cube >= thresh))
-    return loc
-
-def find_extrema(mapconv,mapmasks, map_file,thresh=-2.35, exclude_radius=12.0):
-
-    if thresh < 0:
-        domaxima = False
-        minima = {}
-        #print ("Finding flux minima...")
-    else:
-        domaxima = True
-        maxima = {}
-        print ("Finding flux maxima...")
-    # Identify extrema with maps smoothed by 4 cMpc/h kernel, normalized by
-    # the standard deviation (measured outside the masked regions)
-    #std = np.std(mapconv[~mapmasks])
-    std = np.std(mapconv)
-    m = mapconv / std
-    l = get_minima(cube = m, map_file=map_file, thresh=thresh, exclude_radius=exclude_radius, domaxima=domaxima)
-    # Remove peaks in masked zones
-    #interior = np.array([~mapmasks[l[0][i], l[1][i], l[2][i]] for i in range(len(l[0]))])
-    #x, y, z = l[0][interior], l[1][interior], l[2][interior]
-    # Record significance in units of map stddev
-    x, y, z = l[0], l[1], l[2]
-    signif = np.array([m[x[i], y[i], z[i]] for i in range(len(x))])
-    mapval = np.array([mapconv[x[i], y[i], z[i]] for i in range(len(x))])
-    st = {'x': x.copy(), 'y': y.copy(), 'z': z.copy(),
-              'signif': signif.copy(), 'mapval': mapval.copy()}
-        
-    if domaxima: 
-        maxima = st
-        return maxima
-    else: 
-        minima = st
-        return minima
-
-
-def fof_networks(n, lst):
-    groups = []
-    for i in range(n):
-        groups.append({i})
-    for pair in lst:
-        union = groups[pair[0]] | groups[pair[1]]
-        for p in union:
-                groups[p] = union
-    sets = set()
-    for g in groups:
-        sets.add(tuple(g))
-    return sets
-
-# This version ensures the points are actually local minima/maxima and uses FoF
-# to group points and discard all but the most extreme.
-def find_extrema_v2(mapconv, thresh=-3.5, linking_length=4.0, fields=['DC','D1','D4']):
-    global minima, maxima
-    if thresh < 0:
-        domaxima = False
-        minima = {}
-        print("Finding flux minima...")
-    else:
-        domaxima = True
-        maxima = {}
-        print("Finding flux maxima...")
-
-    std = np.std(mapconv)
-    m = mapconv / std
-
-    neg = m if not domaxima else -m
-    # Find local minima
-    ismin = np.ones_like(neg, dtype=bool)
-    for r in [1, -1]:
-        for ax in [0,1,2]:
-            ismin = ismin & (neg < np.roll(neg, r, axis=ax))
-    # Apply threshold
-    ismin = ismin & (neg < -np.abs(thresh))
-    l = np.where(ismin)
-    x, y, z = l[0], l[1], l[2]
-    # Record significance in units of map stddev
-    signif = np.array([m[x[i], y[i], z[i]] for i in range(len(x))])
-    #print 'Initially got %d points' % len(x)
-    # Link nearby points with FoF. Partition the min/maxima into disjoint sets each comprised
-    # of friends-of-friends joined by a specified linking length. Keep only the most extreme
-    # min/maximum within each set.
-
-    friends = []
-    for i in range(x.size):
-        for j in range(i+1, x.size):
-            if np.sqrt((x[i] - x[j])**2 + (y[i] - y[j])**2 + (z[i] - z[j])**2) < linking_length:
-                friends.append(tuple((i,j)))
-    delete = np.repeat(False, len(x))
-    for n in fof_networks(len(x), friends):
-        if len(n) == 1: continue
-        keep = np.argmax(np.abs(signif[list(n)]))
-        delete[list(n)] = True
-        delete[n[keep]] = False
-    x, y, z, signif = x[~delete], y[~delete], z[~delete], signif[~delete]
-    #Reverse sort by significance
-    s = np.argsort(np.abs(signif))[::-1]
-    mapval = np.array([mapconv[x[i], y[i], z[i]] for i in range(len(x))])
-    st = {'x': x[s], 'y': y[s], 'z': z[s],
-            'signif': signif[s], 'mapval': mapval[s],
-            'thresh': thresh, 'linking_length': linking_length}
-        
-    if domaxima: 
-        maxima = st
-        return maxima
-    else: 
-        minima = st
-        return minima
 
 def boundary_condition_label(labeled_array):
     """A method to implement periodic boundary condition in a labeled map with scipy.ndimage.label()"""
@@ -241,7 +108,7 @@ def our_minima_finder(dfmap, thresh):
         ismin = ismin & (dfmap < -np.abs(thresh))
     return ismin
 
-def find_extrema_v3(mapconv, thresh=-2.0, linking_contour=2.0, periodic_bound=True, max_structure_size=None, keepallminima=True, hmin=None, minimalist=True):
+def find_extrema(mapconv, thresh=-2.0, linking_contour=2.0, periodic_bound=True, max_structure_size=None, keepallminima=True, hmin=None, minimalist=True):
     """A function to get the contours with significance (i.e. delta_f /sigma_map) < -linking_contour which host at least an absorptionminima with significance < thresh. 
     Inputs:
         mapconv : ndarray, required
@@ -366,7 +233,7 @@ def find_extrema_v3(mapconv, thresh=-2.0, linking_contour=2.0, periodic_bound=Tr
           'linking_contour': linking_contour, 'label': labels[x,y,z][s]}
     return st, labels
 
-def mtomo_partition_v2(mapconv, DMconv, z_acc, thresh=-2.0, linking_contour=2.0, coeff=None, periodic_bound=True, max_structure_size=None, keepallminima=True, minlogmassratio=None, hmin=None, minimalist=False, rank=0):
+def mtomo_partition(mapconv, DMconv, z_acc, thresh=-2.0, linking_contour=2.0, coeff=None, periodic_bound=True, max_structure_size=None, keepallminima=True, minlogmassratio=None, hmin=None, minimalist=False, rank=0):
     """Performs the watershed algorithm on a mock-observed map.
     
     Parameters:
@@ -410,7 +277,7 @@ def mtomo_partition_v2(mapconv, DMconv, z_acc, thresh=-2.0, linking_contour=2.0,
     # The conversion factor needed to calculate M_tomo
     Delta_to_Msol_ph = convert_Delta_Msol_ph(z=z_acc, volume=1)
     print('find_extrema started!', flush=True)
-    m, l = find_extrema_v3(mapconv, thresh=thresh, linking_contour=linking_contour, periodic_bound=periodic_bound, max_structure_size=max_structure_size, keepallminima=keepallminima, hmin=hmin, minimalist=np.invert(minimalist))
+    m, l = find_extrema(mapconv, thresh=thresh, linking_contour=linking_contour, periodic_bound=periodic_bound, max_structure_size=max_structure_size, keepallminima=keepallminima, hmin=hmin, minimalist=np.invert(minimalist))
     print('find_extrema is done!', flush=True)
     Nl = np.size(np.unique(np.ravel(l[l>0])))
 
@@ -445,16 +312,16 @@ def mtomo_partition_v2(mapconv, DMconv, z_acc, thresh=-2.0, linking_contour=2.0,
             # Break apart the contour
             wshed_bc = False # A flag for whether the segment is on the boundary or not
             if periodic_bound :
-               if np.any(wpar[0,:,:]) or np.any(wpar[:,0,:]) or np.any(wpar[:,:,0]):
-                  wshed_bc = True
-                  wpar_pad = np.pad(wpar, offset, mode='wrap')
-                  seg = watershed(data_pad, markers=atminimum_pad, mask=wpar_pad)
-                  seg = seg[data_shape[0]:-data_shape[0], data_shape[1]:-data_shape[1], data_shape[2]:-data_shape[2]]
-                  del wpar_pad
-               else :
-                  seg = watershed(data_pad[data_shape[0]:-data_shape[0], data_shape[1]:-data_shape[1], data_shape[2]:-data_shape[2]], markers=atminimum_pad[data_shape[0]:-data_shape[0], data_shape[1]:-data_shape[1], data_shape[2]:-data_shape[2]], mask=wpar)
+                if np.any(wpar[0,:,:]) or np.any(wpar[:,0,:]) or np.any(wpar[:,:,0]):
+                    wshed_bc = True
+                    wpar_pad = np.pad(wpar, offset, mode='wrap')
+                    seg = watershed(data_pad, markers=atminimum_pad, mask=wpar_pad)
+                    seg = seg[data_shape[0]:-data_shape[0], data_shape[1]:-data_shape[1], data_shape[2]:-data_shape[2]]
+                    del wpar_pad
+                else :
+                    seg = watershed(data_pad[data_shape[0]:-data_shape[0], data_shape[1]:-data_shape[1], data_shape[2]:-data_shape[2]], markers=atminimum_pad[data_shape[0]:-data_shape[0], data_shape[1]:-data_shape[1], data_shape[2]:-data_shape[2]], mask=wpar)
             else :
-               seg = watershed(data, markers=atminimum, mask=wpar)
+                seg = watershed(data, markers=atminimum, mask=wpar)
             Npartsinit = len(np.unique(seg)) - 1
             # Measure mass ratios if we're imposing a minimum
             if minlogmassratio is not None:
@@ -534,16 +401,16 @@ def get_centroid(dfmap, wpart, periodic_bound):
     involx, involy, involz = np.where(wpart)
     (Lx, Ly, Lz) = dfmap.shape
     if periodic_bound:
-       if (0 in involx)*( Lx-1 in involx):
-          involx[np.where(involx < Lx/2)] += Lx
-       if (0 in involy)*( Ly-1 in involy):
-          involy[np.where(involy < Ly/2)] += Ly
-       if (0 in involz)*( Lz-1 in involz):
-          involz[np.where(involz < Lz/2)] += Lz
-       offset = [(0,int(Lx/2)), (0,int(Ly/2)), (0,int(Lz/2))]
-       data = np.pad(dfmap, offset, mode='wrap')
+        if (0 in involx)*( Lx-1 in involx):
+            involx[np.where(involx < Lx/2)] += Lx
+        if (0 in involy)*( Ly-1 in involy):
+            involy[np.where(involy < Ly/2)] += Ly
+        if (0 in involz)*( Lz-1 in involz):
+            involz[np.where(involz < Lz/2)] += Lz
+        offset = [(0,int(Lx/2)), (0,int(Ly/2)), (0,int(Lz/2))]
+        data = np.pad(dfmap, offset, mode='wrap')
     else : 
-       data = dfmap
+        data = dfmap
     del dfmap
     
     wht = np.copy(-data[involx, involy, involz])
@@ -554,18 +421,18 @@ def get_centroid(dfmap, wpart, periodic_bound):
     return (np.sum(involx * wht)%Lx, np.sum(involy * wht)%Ly, np.sum(involz * wht)%Lz, radius)
  
 
-def displace_randomly(lmap_mock, peaks, save_lmap, save_peaks, seed=69):
+def displace_randomly(lmap, peaks, save_lmap, save_peaks, seed=69):
     """Displace the labeled map and the corresponding peak
     cataloge randomly"""
     np.random.seed(seed)
     d = np.random.randint(low=0,high=205,size=3)
     print('displace vector :', d)
-    lmap_mock = np.roll(lmap_mock, (d[0],d[1],d[2]), (0,1,2))
+    lmap = np.roll(lmap, (d[0],d[1],d[2]), (0,1,2))
     
     with h5py.File(save_lmap, 'w') as f:
-        f['map'] = lmap_mock
+        f['map'] = lmap
     with h5py.File(save_peaks,'w')  as f:
-        pmap = np.zeros_like(lmap_mock)
+        pmap = np.zeros_like(lmap)
         for i in range(peaks['x'].size):
             pmap[peaks['x'][i], peaks['y'][i], peaks['z'][i]] = i+1
         pmap = np.roll(pmap, (d[0],d[1],d[2]), (0,1,2))
@@ -606,7 +473,7 @@ def convert_Delta_Msol_ph(z, volume=1):
     from astropy.cosmology import Planck15 as cosmo
     import astropy.units as u
     
-    return (cosmo.critical_density(z=z).to(u.solMass/u.Mpc**3)*(1/(1+cosmo.Ob0/cosmo.Om0))*((1*u.Mpc/((1+z)*cosmo.h))**3)).value
+    return volume*(cosmo.critical_density(z=z).to(u.solMass/u.Mpc**3)*(1/(1+cosmo.Ob0/cosmo.Om0))*((1*u.Mpc/((1+z)*cosmo.h))**3)).value
 
 
 def get_islands(thresh=-2.0, sigma=4):
@@ -624,3 +491,87 @@ def get_islands(thresh=-2.0, sigma=4):
     contours, _ = label(mock_map < thresh)
     contorus = boundary_condition_label(contours)    
     return contorus
+
+
+def get_id_max_overlap(lmap_mock, lmap_true):
+    """returns : A dictionary of the corresponding ids of overlapping structures, 
+    just returns those structures which have overlapping structures in true map"""
+    minima_mock = np.unique(lmap_mock)
+    minima_true = np.unique(lmap_true)
+    minima_mock = np.delete(minima_mock, np.where(minima_mock==0))
+    minima_true = np.delete(minima_true, np.where(minima_true==0))
+    
+    
+    id_max_overlap = {'mock':np.array([]),'true':np.array([])}
+    for i in minima_mock:
+        indm = np.where(lmap_mock==i)
+        idtrue, counts = np.unique(lmap_true[indm], return_counts=True)
+        if idtrue[0] == 0:
+            idtrue = np.delete(idtrue, 0)
+            counts = np.delete(counts, 0)
+            if counts.size== 0 :
+                continue
+        counts_sorted = np.sort(counts)
+        # Here, If 2 sub-contours overlap identically, we pick just the one with lower id
+        indt = np.where(counts == counts_sorted[-1])[0][0]
+        if idtrue[indt]!=0 :
+            id_max_overlap['mock'] = np.append(id_max_overlap['mock'], i)
+            id_max_overlap['true'] = np.append(id_max_overlap['true'], idtrue[indt])
+    id_max_overlap['true'].astype(int); id_max_overlap['mock'].astype(int)
+    return id_max_overlap
+
+def get_Mtomo_MDM(z_accurate, lmap_mock, lmap_true, peaks_mock, peaks_true, DM_file):
+    """Returns Mtomo and DM mass within the mock watersheds and the companion ones
+    in the nosieless map
+    z_accurate : The accurate redshift of teh snapshot
+    lmap_mock, lmap_true: labeled array of the mock and noiseless maps
+    peaks_mock, peaks_true:  arrays containing the peaks of the mock and noiseless maps
+                             Refer to motmo_partition for more details
+    DM_file : path to the 3D DM overdensity map, i.e Delta = rho / <rho>
+    
+    Returns :
+             (all mock Mtomos, all noiseless mtomos, DM mass within all mock contours, 
+             DM masses within all noiseless contours, DM mass within noiseless contours which overlap with each mock contour,
+             an array connecting ids of the overlapping contours in mock and noiseless maps)
+    """
+    DM = h5py.File(DM_file, 'r')['DM/dens'][:]
+    DM *= convert_Delta_Msol_ph(z=z_accurate)
+    MDM_true = np.array([])
+    MDM_mock = np.array([])
+    MDM_mock_true = np.array([])
+    for i in range(1, peaks_mock['mtomo'].size+1):
+        ind = np.where(lmap_mock == i)
+        MDM_mock = np.append(MDM_mock, np.log10(np.sum(DM[ind])))
+    for i in range(1, peaks_true['mtomo'].size+1):
+        ind = np.where(lmap_true == i)
+        MDM_true = np.append(MDM_true, np.log10(np.sum(DM[ind])))
+    
+    id_max_overlap = get_id_max_overlap(lmap_mock=lmap_mock, lmap_true=lmap_true)
+    for i in id_max_overlap['true'][:]:
+        ind = np.where(lmap_true==i)
+        MDM_mock_true = np.append(MDM_mock_true, np.log10(np.sum(DM[ind])))
+    return peaks_mock['mtomo'][:], peaks_true['mtomo'][:], MDM_mock, MDM_true, MDM_mock_true, id_max_overlap
+
+def write_Mtomo_MDM(z, z_acc, th, lc, offset):
+    """Writes the Mtomo and Dm masses on a file since they are slow to produce"""
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_Size()
+    
+    DM = h5py.File('/run/media/mahdi/HD2/Lya/LyTomo_data_new/DM_Density_field/TNG_DM_z'
+               +str(z)+'.hdf5','r')['DM/dens'][:]
+    fname = ('/run/media/mahdi/HD2/Lya/LyTomo_data_new/plotting_data/Mtomo_MDM_z'+str(z)+'_th'
+             +str(th).ljust(4,'0')+'_lc'+str(lc).ljust(4,'0')+'.hdf5')
+    with h5py.File(fname,'w') as fw:
+        for n in range(1,21):
+            lmap_mock, peaks_mock, lmap_true, peaks_true =  load_watersheds(z=z, n=n, th=th, lc=lc)
+            Mtomo_mock, Mtomo_true, MDM_mock, MDM_true, MDM_mock_true, id_max_overlap = minima.get_Mtomo_MDM(z_accurate=z_acc, lmap_mock=lmap_mock,
+                                                                                                             peaks_mock=peaks_mock, lmap_true=lmap_true,
+                                                                                                             peaks_true=peaks_true, DM=DM)
+            fw[str(n)+'/Mtomo_mock'] = Mtomo_mock[:]+offset
+            fw[str(n)+'/MDM_mock'] = MDM_mock[:]
+            fw[str(n)+'/Mtomo_mock_overlap'] = Mtomo_mock[:][id_max_overlap['mock'][:].astype(int)-1]+offset
+            fw[str(n)+'/MDM_true_overlap'] = MDM_mock_true
+            fw[str(n)+'/id_max_overlap/mock'] = id_max_overlap['mock'][:]
+            fw[str(n)+'/id_max_overlap/true'] = id_max_overlap['true'][:]
