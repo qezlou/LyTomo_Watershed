@@ -6,7 +6,7 @@ import h5py
 import argparse
 import os
 
-def runit(n, th0, mock_file, true_file, DM_file, z, sigma, linking_contour, periodic_bound, savedir, coeff):
+def runit(n, th0, mock_file, true_file, DM_file, z, z_acc, sigma, linking_contour, periodic_bound, savedir, coeff):
     """ Uses the minima.mtomo_partiion_v2() to get the labeled map and peaks for a sequence of value for
        parameter thresh 
        Look at main function below for the description on each argument.
@@ -22,7 +22,7 @@ def runit(n, th0, mock_file, true_file, DM_file, z, sigma, linking_contour, peri
     tss = time.asctime()
     print('Rank =', rank, 'started!', tss, flush=True)
 
-    import codes.minima as minima
+    from lytomo_watershed import minima
     if periodic_bound :
         mode = 'wrap'
     else :
@@ -47,10 +47,10 @@ def runit(n, th0, mock_file, true_file, DM_file, z, sigma, linking_contour, peri
     print('kappa = ', th, 'nu = ', lc, flush=True)
     for i in range(3):
         coeff[i]=float(coeff[i])
-    peaks_mock, lmap_mock = minima.mtomo_partition(mapconv=mock, DMconv=DMconv, z_acc=2.4442257045541464, coeff=coeff, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
+    peaks_mock, lmap_mock = minima.mtomo_partition(mapconv=mock, DMconv=DMconv, z_acc=z_acc, coeff=coeff, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
     print('Start Working on true maps!', flush=True)
     if true_file != 'None':
-        peaks_true, lmap_true = minima.mtomo_partition(mapconv=mtrue, DMconv=DMconv, z_acc=2.4442257045541464, coeff=None, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
+        peaks_true, lmap_true = minima.mtomo_partition(mapconv=mtrue, DMconv=DMconv, z_acc=z_acc, coeff=None, thresh=th, linking_contour=lc, periodic_bound=periodic_bound, minimalist=False, rank=rank)
 
     #Write on hdf5 files
     fname = os.path.join(savedir,'labeled_map_TNG_z'+str(z)+'_n'+str(int(n))+'_sigma'+str(sigma)+'_th'+str(th)[1:5].ljust(4,'0')+'_lc'+str(lc)[0:4].ljust(4,'0')+'.hdf5')
@@ -100,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--DM_file', type=str, required=True, help='The address for the DM density map')
     parser.add_argument('--periodic', type=int, required=True, help='Periodic boundary if non zero passed ')
     parser.add_argument('--z', type=float, required=True, help='Redshift ')
+    parser.add_argument('--zacc', type=float, required=True, help='acuurate Redshift')
     parser.add_argument('--sigma', type=int, required=True, help='smoothing scale')
     parser.add_argument('--lc', type=float, required=True, help='linking contour')
     parser.add_argument('--savedir', type=str, required=True, help='Directory to save the results in')
@@ -113,5 +114,5 @@ if __name__ == '__main__':
     else :
         args.periodic = True
 
-    runit(n=args.n, th0 = args.th0, mock_file= args.mock_file, true_file= args.true_file, DM_file= args.DM_file, z= args.z, sigma= args.sigma, linking_contour= args.lc, periodic_bound= args.periodic, savedir=args.savedir, coeff=args.coeff)
+    runit(n=args.n, th0 = args.th0, mock_file= args.mock_file, true_file= args.true_file, DM_file= args.DM_file, z= args.z, z_acc=args.zacc, sigma= args.sigma, linking_contour= args.lc, periodic_bound= args.periodic, savedir=args.savedir, coeff=args.coeff)
 
