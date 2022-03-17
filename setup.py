@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="lytomo_watershed",
-    version="0.4.0",
+    version="1.0.0",
     author="Mahdi Qezlou, Drew Newman, Gwen Rudie, Simeon Bird",
     author_email="mahdi.qezlou@email.ucr.edu",
     description="Detection of protoclusters in Ly-alpha tomography surveys",
