@@ -7,7 +7,7 @@
 import argparse
 import lytomo_watershed
 
-def get_density_field(snaps, savedir, Nmesh):
+def get_density_field(snaps, savedir, Nmesh, sim_type, boxsize, z):
     """First you need to make a density map on a grid with average
         one particle per voxel. 
     Arguments:
@@ -15,9 +15,9 @@ def get_density_field(snaps, savedir, Nmesh):
         savedir: The path to directory to save the density files in
         Nmesh: Number of mesh voxles along each axis, the density map would be of shape 
         (Nmesh, Nmesh, Nmesh)"""
-    from lytomo_watershed import get_density_field
-    get_density_field.TNG(snaps=snaps, savedir=savedir, Nmesh=Nmesh, zspace=False, momentumz=True, 
-                          parttype=['PartType1'])
+    from lytomo_watershed.density import Density
+    dens = Density(snaps=snaps, savedir=savedir, Nmesh=Nmesh, zspace=False, momentumz=True, sim_type=sim_type, z=z, boxsize=boxsize)
+    dens.Gadget()
 
 def get_noiseless_map(z, savedir, savefile, boxsize=205, Ngrids=410, Npix=1780):
     """Get the noiseless flux FGPA map.
@@ -65,19 +65,21 @@ if __name__ == '__main__':
     """ Uncomment the function you may want to use """
     parser = argparse.ArgumentParser()
     parser.add_argument('--func', type=str, required=True)
-    parser.add_argument('--z', type=float, required=False)
-    parser.add_argument('--savedir', type=str, required=True)
-    parser.add_argument('--savefile', type=str, required=False)
-    parser.add_argument('--boxsize', type=int, required=False)
-    parser.add_argument('--Ngrids', type=int, required=False)
-    parser.add_argument('--Npix', type=int, required=False)
-    parser.add_argument('--snaps', type=str, required=False)
-    parser.add_argument('--Nmesh', type=int, required=False)
+    parser.add_argument('--snaps', type=str, required=False, default=None, help='adress to snapshots in globe pattern, like "./snap_0*"')
+    parser.add_argument('--Nmesh', type=int, required=False, default=None, help='Number of mesh cells along each axis, the density field will have the shape of Nmesh*Nmesh*Nmesh')
+    parser.add_argument('--simtype', type=str, required=False, default='Gadget', help='Either "Gadget" or "Gadget_old"')
+    parser.add_argument('--z', type=float, required=False, default=None, help='Accurate redshift')
+    parser.add_argument('--savedir', type=str, required=True, help='the dir to save the results of each rank in')
+    parser.add_argument('--savefile', type=str, required=False, help='The file name to save the full FGPA map')
+    parser.add_argument('--boxsize', type=int, required=False, default=None, help='boxsize in cMpc/h, only if simtype="Gadget_old"')
+    parser.add_argument('--Ngrids', type=int, required=False, help='We will get Ngrids*Ngrids spectra streched along z')
+    parser.add_argument('--Npix', type=int, required=False, help='number of pxiels in each spectra')
+
     
     args = parser.parse_args()
     
     if args.func == 'density':
-        get_density_field(snaps= args.snaps, savedir= args.savedir, Nmesh= args.Nmesh)
+        get_density_field(snaps= args.snaps, savedir= args.savedir, Nmesh= args.Nmesh, sim_type= args.simtype, z=args.z, boxsize=args.boxsize)
     if args.func == 'map':
         get_noiseless_map(z=args.z, savedir=args.savedir, savefile=args.savefile,
                           boxsize=args.boxsize, Ngrids=args.Ngrids, Npix=args.Npix)

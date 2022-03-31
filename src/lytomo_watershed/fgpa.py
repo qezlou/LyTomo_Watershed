@@ -234,19 +234,17 @@ class Fgpa:
                 indx = np.where(np.isin(x, f['DM/x'][:]))[0]
                 if indx.size == 0:
                     # Some ranks may not hold any sightlines at all
-                    print('The sightline coordinates are not on density grids on rank=', 
-                          self.rank, flush=True)
+                    print('The sightline coordinates are not on density grids on file ', fn, flush=True)
                     print("The y desnity grid coordinates are = ", f['DM/y'][:], flush=True)
-                    return tau_conv, [0,0], [0,0]
+                    continue
 
                 xstart, xend = indx[0], indx[-1]
                 indy = np.where(np.isin(y, f['DM/y'][:]))[0]
                 if indy.size == 0:
                     # Some ranks may not hold any sightlines at all
-                    print('The sightline coordinates are not on density grids on rank=', 
-                          self.rank, flush=True)
+                    print('The sightline coordinates are not on density grids on file ', fn, flush=True)
                     print("The y desnity grid coordinates are = ", f['DM/y'][:], flush=True)
-                    return tau_conv, [0,0], [0,0]
+                    continue
 
                 ystart, yend = indy[0], indy[-1]
                 print('Sightlines on Rank =', self.rank, (int(xstart), int(xend)), (int(ystart), int(yend)) ,flush=True)
