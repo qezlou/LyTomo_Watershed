@@ -35,7 +35,7 @@ from . import density
 class Fgpa:
     """A class for FGPA method"""
     def __init__(self, MPI, comm, z, boxsize, Ngrids, Npix, SmLD, SmLV, savedir, fix_mean_flux=True, 
-                 mean_flux=None, gamma=1.46, T0=1.94*10**4):
+                 mean_flux=None, gamma=1.46, T0=1.94*10**4, save_tau_conv=False):
         """
         Params : 
             comm : instanse of the MPI communicator
@@ -45,6 +45,9 @@ class Fgpa:
             Npix : number of desired pxiels along final map
             gamma : The slope in temperature-density relation
             T0 : Temperature at mean density
+            save_tau_conv : (Optional, False) If True, it saves the tau_conv calculated on each rank on a file in
+                            savedir. It is helpful for very large simulations (~ 1Gpc/h with L_vox ~ 1cMp/h). It is temporary 
+                            and needs to be fixed. 
             """
         # Initialize the MPI communication
         self.MPI = MPI
@@ -59,6 +62,7 @@ class Fgpa:
         self.savedir = savedir
         self.fix_mean_flux = fix_mean_flux
         self.mean_flux = mean_flux
+        self.save_tau_conv = save_tau_conv
         # Thermal paramters of the IGM
         self.gamma= gamma
         self.T0 = T0
@@ -167,16 +171,19 @@ class Fgpa:
         tau_conv[~ind] = 0
         ### Resampling pixels along spectra
         flux_conv = self.resample_flux(scale*tau_conv)
+        del tau_conv
 
         ### MPI part
         # Make sure the data is contiguous in memeory
         flux_conv = np.ascontiguousarray(flux_conv, np.float64)
+        self.comm.Barrier()
         # Add the results from all ranks
-        self.comm.Allreduce(self.MPI.IN_PLACE, flux_conv, op=self.MPI.SUM)
+        #self.comm.Allreduce(self.MPI.IN_PLACE, flux_conv, op=self.MPI.SUM)
+        self.commm.Reduce(self.MPI.IN_PLACE, flux_conv, op=self.MPI.SUM, root=0)
         # We should subtract the amount below since in absense of 
         # absorption flux is 1 and the Allreduce() is adding them.
-        flux_conv -= (self.comm.Get_size() - 1 )
         if self.rank == 0:
+            flux_conv -= (self.comm.Get_size() - 1 )
             with h5py.File(self.savedir+savefile,'w') as fw:
                 fw['map'] = flux_conv
         self.comm.Barrier()
@@ -278,6 +285,11 @@ class Fgpa:
                             dvel[indv] = dvbin*Nz - dvel[indv]
                             Voight = (1/btherm)*np.exp(-(dvel/btherm)**2)
                             tau_conv[i,j,k] = np.sum(tau_real*Voight*dvbin)
+        # save the tau_conv on file for ranks with some result on it
+        
+        if self.save_tau_conv and np.any(tau_conv != -1):
+            with h5py.File(os.path.join(self.savedir,self.rank+'_fgpa.hdf5'), 'w') as fw:
+                fw['tau_conv'] = tau_conv
         self.comm.Barrier()
         print('Rank', self.rank, 'is done with tau_conv', flush=True)
         return tau_conv
