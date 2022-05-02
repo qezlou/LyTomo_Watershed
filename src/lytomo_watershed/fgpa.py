@@ -227,6 +227,7 @@ class Fgpa:
             if not os.path.exists(fn):
                 raise IOError('File '+fn+' does not exist!')
             with h5py.File(fn,'r') as f:
+                print(fn, flush=True)
                 if tau_conv is None:
                     # nbodykit does not break the data along the z direction, so Nz is the 
                     # the size of the initial density map in all 3 dimentions
@@ -288,7 +289,8 @@ class Fgpa:
         # save the tau_conv on file for ranks with some result on it
         
         if self.save_tau_conv and np.any(tau_conv != -1):
-            with h5py.File(os.path.join(self.savedir,self.rank+'_fgpa.hdf5'), 'w') as fw:
+            with h5py.File(os.path.join(self.savedir,str(self.rank)+'_fgpa.hdf5'), 'w') as fw:
+                print('tau_conv type: ', type(tau_conv), flush=True)
                 fw['tau_conv'] = tau_conv
         self.comm.Barrier()
         print('Rank', self.rank, 'is done with tau_conv', flush=True)
