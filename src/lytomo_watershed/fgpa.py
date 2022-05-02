@@ -227,14 +227,12 @@ class Fgpa:
             if not os.path.exists(fn):
                 raise IOError('File '+fn+' does not exist!')
             with h5py.File(fn,'r') as f:
-                print(fn, flush=True)
                 if tau_conv is None:
                     # nbodykit does not break the data along the z direction, so Nz is the 
                     # the size of the initial density map in all 3 dimentions
                     Nz = f['DM/dens'][:].shape[2]
                     dvbin = cosmo.H(self.z).value*self.boxsize/(cosmo.h*Nz*(1+self.z))
                     up = np.arange(Nz)*dvbin
-                    tau_conv = -1*np.ones(shape=(self.Ngrids, self.Ngrids, Nz))
                     # Approx position of the desired sightlines. The approximation should be ok
                     # for FGPA since the density map has very fine voxels
                     x, y = int(Nz/self.Ngrids)*np.arange(self.Ngrids), int(Nz/self.Ngrids)*np.arange(self.Ngrids)
@@ -257,14 +255,15 @@ class Fgpa:
                 ystart, yend = indy[0], indy[-1]
                 print('Sightlines on Rank =', self.rank, (int(xstart), int(xend)), (int(ystart), int(yend)) ,flush=True)
                 # i, j are indices for the final flux map (Ngrids * Ngrids)
-                for i in range(xstart, xend+1):
+                tau_conv = -1*np.ones(shape=(indx.size, indy.size, Nz))
+                for i in range(indx.size):
                     if self.rank ==1:
                         print(str(int(100*c/len(fnames)))+'%', flush=True )
                     # Indices on f['DM/dens'] map
-                    ic = x[i] - f['DM/x'][0]
-                    for j in range(ystart, yend+1):
+                    ic = x[indx[i]] - f['DM/x'][0]
+                    for j in range(indy.size):
                         # Indices on f['DM/dens'] map
-                        jc = y[j] - f['DM/y'][0]
+                        jc = y[indy[j]] - f['DM/y'][0]
                         dens = f['DM/dens'][ic,jc,:]
                         tau_real = self.get_tau_real(f['DM/dens'][ic,jc,:])
                         # Peculiar velocity addition
@@ -286,14 +285,26 @@ class Fgpa:
                             dvel[indv] = dvbin*Nz - dvel[indv]
                             Voight = (1/btherm)*np.exp(-(dvel/btherm)**2)
                             tau_conv[i,j,k] = np.sum(tau_real*Voight*dvbin)
-        # save the tau_conv on file for ranks with some result on it
-        
-        if self.save_tau_conv and np.any(tau_conv != -1):
-            with h5py.File(os.path.join(self.savedir,str(self.rank)+'_fgpa.hdf5'), 'w') as fw:
-                print('tau_conv type: ', type(tau_conv), flush=True)
-                fw['tau_conv'] = tau_conv
+            # save the tau_conv on file for density files containing the desired sightlines 
+            if self.save_tau_conv and np.any(tau_conv != -1):
+                with h5py.File(os.path.join(self.savedir,self.rank+'_fgpa.hdf5'), 'w') as fw:
+                    fw['tau_conv'] = tau_conv
+                    fw['indx'] = indx
+                    fw['indy'] = indy
+                    
         self.comm.Barrier()
+        if self.save_tau_conv:
+            tau_conv = -1*np.ones(shape=(Ngrids, Ngrids, Nz))
+            tau_files = glob.glob(os.path.join(self.savedir,'*_fgpa.hdf5'))
+            for fn in tau_files:
+                with h5py.File(fn,'r') as f:
+                    indx = f['indx'][:]
+                    indy = f['indy'][:]
+                    indx, indy = np.meshgrid(indx,indy)
+                    tau_conv[indx, indy,:] = f['tau_conv'][:]
+            
         print('Rank', self.rank, 'is done with tau_conv', flush=True)
+        
         return tau_conv
 
     def get_tau_real(self, Delta):
