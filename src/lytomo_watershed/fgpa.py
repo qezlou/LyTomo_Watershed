@@ -35,7 +35,7 @@ from . import density
 class Fgpa:
     """A class for FGPA method"""
     def __init__(self, MPI, comm, z, boxsize, Ngrids, Npix, SmLD, SmLV, savedir, fix_mean_flux=True, 
-                 mean_flux=None, gamma=1.46, T0=1.94*10**4, save_tau_conv=False):
+                 mean_flux=None, gamma=1.46, T0=1.94*10**4):
         """
         Params : 
             comm : instanse of the MPI communicator
@@ -45,9 +45,7 @@ class Fgpa:
             Npix : number of desired pxiels along final map
             gamma : The slope in temperature-density relation
             T0 : Temperature at mean density
-            save_tau_conv : (Optional, False) If True, it saves the tau_conv calculated on each rank on a file in
-                            savedir. It is helpful for very large simulations (~ 1Gpc/h with L_vox ~ 1cMp/h). It is temporary 
-                            and needs to be fixed. 
+
             """
         # Initialize the MPI communication
         self.MPI = MPI
@@ -62,7 +60,6 @@ class Fgpa:
         self.savedir = savedir
         self.fix_mean_flux = fix_mean_flux
         self.mean_flux = mean_flux
-        self.save_tau_conv = save_tau_conv
         # Thermal paramters of the IGM
         self.gamma= gamma
         self.T0 = T0
@@ -158,32 +155,22 @@ class Fgpa:
         savefile : The name for hdf5 file to save final map on
         """
         tau_conv = self.get_tau_conv()
-        ind = tau_conv != -1
-        if self.fix_mean_flux:
-            if self.mean_flux is None:
-                mean_flux = sm.get_mean_flux(z=self.z)
-            else:
-                mean_flux = self.mean_flux
-            print('mean flux is ', mean_flux, flush=True)
-            scale = fs.mean_flux(tau_conv[ind], mean_flux_desired=mean_flux)
-        else :
-            scale = 1
-        tau_conv[~ind] = 0
-        ### Resampling pixels along spectra
-        flux_conv = self.resample_flux(scale*tau_conv)
-        del tau_conv
-
-        ### MPI part
-        # Make sure the data is contiguous in memeory
-        flux_conv = np.ascontiguousarray(flux_conv, np.float64)
-        self.comm.Barrier()
-        # Add the results from all ranks
-        #self.comm.Allreduce(self.MPI.IN_PLACE, flux_conv, op=self.MPI.SUM)
-        self.commm.Reduce(self.MPI.IN_PLACE, flux_conv, op=self.MPI.SUM, root=0)
-        # We should subtract the amount below since in absense of 
-        # absorption flux is 1 and the Allreduce() is adding them.
+        ### The work here is not very well balanced among ranks
         if self.rank == 0:
-            flux_conv -= (self.comm.Get_size() - 1 )
+            if self.fix_mean_flux:
+                if self.mean_flux is None:
+                    mean_flux = sm.get_mean_flux(z=self.z)
+                else:
+                    mean_flux = self.mean_flux
+                print('mean flux is ', mean_flux, flush=True)
+                scale = fs.mean_flux(tau_conv[ind], mean_flux_desired=mean_flux)
+            else :
+                scale = 1
+
+            ### Resampling pixels along spectra
+            flux_conv = self.resample_flux(scale*tau_conv)
+            del tau_conv
+            
             with h5py.File(self.savedir+savefile,'w') as fw:
                 fw['map'] = flux_conv
         self.comm.Barrier()
@@ -233,7 +220,6 @@ class Fgpa:
                     Nz = f['DM/dens'][:].shape[2]
                     dvbin = cosmo.H(self.z).value*self.boxsize/(cosmo.h*Nz*(1+self.z))
                     up = np.arange(Nz)*dvbin
-                    tau_conv = -1*np.ones(shape=(self.Ngrids, self.Ngrids, Nz))
                     # Approx position of the desired sightlines. The approximation should be ok
                     # for FGPA since the density map has very fine voxels
                     x, y = int(Nz/self.Ngrids)*np.arange(self.Ngrids), int(Nz/self.Ngrids)*np.arange(self.Ngrids)
@@ -256,14 +242,15 @@ class Fgpa:
                 ystart, yend = indy[0], indy[-1]
                 print('Sightlines on Rank =', self.rank, (int(xstart), int(xend)), (int(ystart), int(yend)) ,flush=True)
                 # i, j are indices for the final flux map (Ngrids * Ngrids)
-                for i in range(xstart, xend+1):
+                tau_conv = np.zeros(shape=(indx.size, indy.size, Nz))
+                for i in range(indx.size):
                     if self.rank ==1:
                         print(str(int(100*c/len(fnames)))+'%', flush=True )
                     # Indices on f['DM/dens'] map
-                    ic = x[i] - f['DM/x'][0]
-                    for j in range(ystart, yend+1):
+                    ic = x[indx[i]] - f['DM/x'][0]
+                    for j in range(indy.size):
                         # Indices on f['DM/dens'] map
-                        jc = y[j] - f['DM/y'][0]
+                        jc = y[indy[j]] - f['DM/y'][0]
                         dens = f['DM/dens'][ic,jc,:]
                         tau_real = self.get_tau_real(f['DM/dens'][ic,jc,:])
                         # Peculiar velocity addition
@@ -285,15 +272,41 @@ class Fgpa:
                             dvel[indv] = dvbin*Nz - dvel[indv]
                             Voight = (1/btherm)*np.exp(-(dvel/btherm)**2)
                             tau_conv[i,j,k] = np.sum(tau_real*Voight*dvbin)
-        # save the tau_conv on file for ranks with some result on it
-        
-        if self.save_tau_conv and np.any(tau_conv != -1):
-            with h5py.File(os.path.join(self.savedir,self.rank+'_fgpa.hdf5'), 'w') as fw:
+            # save the tau_conv on file for density files containing the desired sightlines 
+            with h5py.File(fn.replace('densfield','fgpa_LessMem'), 'w') as fw:
                 fw['tau_conv'] = tau_conv
+                fw['indx'] = indx
+                fw['indy'] = indy
+                    
+        self.comm.Barrier()
+        
+        if self.rank==0:
+            # Read the saved tau_conv files
+            tau_conv = self.add_up_tau_conv()
+        else:
+            tau_conv = None
+            
         self.comm.Barrier()
         print('Rank', self.rank, 'is done with tau_conv', flush=True)
+        
         return tau_conv
-
+    
+    def add_up_tau_conv(self):
+        """Add individual tau_conv files to form the full map"""
+        
+        tau_conv = -1*np.ones(shape=(self.Ngrids, self.Ngrids, Nz))
+        tau_files = glob.glob(os.path.join(self.savedir,'*_fgpa_LessMem.hdf5'))
+        for fn in tau_files:
+            with h5py.File(fn,'r') as f:
+                indx = f['indx'][:]
+                indy = f['indy'][:]
+                indx, indy = np.meshgrid(indx,indy, indexing='ij')
+                tau_conv[indx, indy, :] = f['tau_conv'][:]
+        assert np.all(tau_conv != -1)
+        
+        return tau_conv
+ 
+    
     def get_tau_real(self, Delta):
         """ Get tau in real space
             The amplitude needs to get fixed with mean

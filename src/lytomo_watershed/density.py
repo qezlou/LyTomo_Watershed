@@ -51,6 +51,8 @@ class Density:
         """Apply redshift space distortion along the slightline"""
         # Old Dask used in nbodykit does not accept elemnt-wise assignment, 
         # so we need to project V_pec along ls_vec
+        print('Debug : BoxSize', self.boxsize, ' ls_vec: ', self.ls_vec, ' coord type :', type(coord), ' vel type :', type(vel), flush=True)
+       
         coord = (coord + vel*self.ls_vec*1000*cosmo.h*np.sqrt(1+self.z)/cosmo.H(self.z).value)%self.boxsize
         return coord
         
@@ -68,9 +70,22 @@ class Density:
         cat = Gadget1Catalog(path=self.snaps, comm=self.comm)
         # MDPL2 has the length units in cMpc/h
         cat['Coordinates'] = cat['Position']*1000
+        cat.attrs['BoxSize'] *= 1000
         # The velocity is in units of sqrt(a)*km/s
         cat['Velocities'] = cat['GadgetVelocity']
         return cat 
+    
+    def get_converted_gadget1_cat(self):
+        """ Reading the converted files to hdf5 using pynbody
+            It does not have any header. Only 'Coordinates' and
+            'Velocities' are stored. The units are in cKpc/h and km*sqrt(a)/s
+        """
+        print('Rank ', self.comm.rank, ' Loading the Catalog', flush=True)
+        cat = HDFCatalog(self.snaps)
+        if self.boxsize is None:
+           raise ValueError('You have to pass the boxsize, it is not on the Header, units in in cKpc/h')
+        cat.attrs['BoxSize'] = self.boxsize
+        return cat
     
     def get_gadget_cat(self):
         """
@@ -91,6 +106,8 @@ class Density:
             cat = self.get_gadget_cat()
         elif self.sim_type == 'Gadget_old':
             cat = self.get_gadget_old_cat()
+        elif self.sim_type == 'Converted_Gadget_old':
+            cat = self.get_converted_gadget1_cat()
         else :
             raise TypeError('The snapshot type is not supported]')
         if self.zspace:
