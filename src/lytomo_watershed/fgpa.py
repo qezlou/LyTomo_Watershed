@@ -23,7 +23,8 @@ which follows the steps below :
    random spectra sample.
 
 """
-
+import os 
+import glob
 import numpy as np
 import h5py
 from astropy.cosmology import Planck15 as cosmo
@@ -163,7 +164,7 @@ class Fgpa:
                 else:
                     mean_flux = self.mean_flux
                 print('mean flux is ', mean_flux, flush=True)
-                scale = fs.mean_flux(tau_conv[ind], mean_flux_desired=mean_flux)
+                scale = fs.mean_flux(tau_conv, mean_flux_desired=mean_flux)
             else :
                 scale = 1
 
@@ -282,7 +283,7 @@ class Fgpa:
         
         if self.rank==0:
             # Read the saved tau_conv files
-            tau_conv = self.add_up_tau_conv()
+            tau_conv = self.add_up_tau_conv(Nz=Nz)
         else:
             tau_conv = None
             
@@ -291,7 +292,7 @@ class Fgpa:
         
         return tau_conv
     
-    def add_up_tau_conv(self):
+    def add_up_tau_conv(self, Nz):
         """Add individual tau_conv files to form the full map"""
         
         tau_conv = -1*np.ones(shape=(self.Ngrids, self.Ngrids, Nz))
