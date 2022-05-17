@@ -71,6 +71,7 @@ class Density:
         # MDPL2 has the length units in cMpc/h
         cat['Coordinates'] = cat['Position']*1000
         cat.attrs['BoxSize'] *= 1000
+        self.boxsize = cat.attrs['BoxSize']
         # The velocity is in units of sqrt(a)*km/s
         cat['Velocities'] = cat['GadgetVelocity']
         return cat 
