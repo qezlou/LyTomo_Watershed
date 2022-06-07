@@ -112,7 +112,7 @@ def find_extrema(mapconv, thresh=-2.0, linking_contour=2.0, periodic_bound=True,
     """A function to get the contours with significance (i.e. delta_f /sigma_map) < -linking_contour which host at least an absorptionminima with significance < thresh. 
     Inputs:
         mapconv : ndarray, required
-            Smoothed delta_F / sigma_map. Note: If boundary is periodic make sure to set mode='wrap' when smoothing with `scipy.ndimage.gaussian_filter()`
+            Smoothed delta_F. Note: If boundary is periodic make sure to set mode='wrap' when smoothing with `scipy.ndimage.gaussian_filter()`
         thresh: float
             The threshold on absoprtion peaks
         linking_contour : float (must be the absolute value, i.e. positive)
