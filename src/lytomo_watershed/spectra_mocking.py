@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.filters import gaussian_filter1d
+from scipy import interpolate
 import fake_spectra
 from fake_spectra.plot_spectra import PlottingSpectra as PS
 from fake_spectra.spectra import Spectra
@@ -856,7 +857,7 @@ def get_spec_res(z=2.2, spec_res=2.06, pix_size=1.8):
 
     return(pix_size*conv_fac, spec_res*conv_fac)
 
-def _get_flux_noiseless(specfile, addpix):
+def _get_flux_noiseless(specfile, addpix, Npix):
     """ A helper for get_true_map_v2() 
     It is almost identical to get_deltaF_v2() for mock maps
     specfile : spectra file for the true spectra
@@ -878,16 +879,34 @@ def _get_flux_noiseless(specfile, addpix):
     for i in range(t.size-1) : 
         new_flux[:,i] = (np.sum(flux[:,t[i]:t[i+1]], axis=1))/addpix
         new_NHI[:,i] = np.sum(new_NHI[:,t[i]:t[i+1]], axis=1)
-    new_flux = np.ravel(new_flux)
-    new_NHI = np.ravel(new_NHI)
-    current_mean_flux = np.mean(np.ravel(new_flux))
+    del flux
+    del NHI
+
+    ## Interpolate along the line-of-sight if necessary
+    if Npix is not None:
+        interp_flux = np.zeros((new_flux.shape[0], Npix))
+        interp_NHI = np.zeros((new_NHI.shape[0], Npix))
+        for i in range(new_flux.shape[0]):
+            fintp = interpolate.interp1d(np.arange(new_flux.shape[1]), new_flux[i,:], kind='linear', fill_value='extrapolate')
+            interp_flux[i,:] = fintp(np.arange(Npix)*(new_NHI.shape[1]/Npix))
+            fintp = interpolate.interp1d(np.arange(new_NHI.shape[1]), new_NHI[i,:], kind='linear', fill_value='extrapolate')
+            interp_NHI[i,:] = fintp(np.arange(Npix)*(new_NHI.shape[1]/Npix))
+    else:
+        interp_flux = new_flux
+        interp_NHI = new_NHI
+    
+    del new_flux
+    del new_NHI
+    interp_flux = np.ravel(interp_flux)
+    interp_NHI = np.ravel(interp_NHI)
+    current_mean_flux = np.mean(np.ravel(interp_flux))
     print('mean flux after noise =', current_mean_flux)
     print ("*** Error on mean flux :*** ", current_mean_flux-mean_flux_desired)
     
-    return new_flux, new_NHI
+    return interp_flux, interp_NHI
 
 
-def get_noiseless_uniform_grid_map(specfile, addpix, savefile, boxsize=205, trans_sep=1.0):
+def get_noiseless_uniform_grid_map(specfile, savefile, addpix, Npix=None, boxsize=205, trans_sep=1.0):
     """Write a 3D matrix for the noiseless map, with averaing consecutive pixels along each specttum
     - specfile : The raw spectra generated with fake_spectra
     - addpix : the number of consecutive pixels to be averaged over
@@ -895,7 +914,7 @@ def get_noiseless_uniform_grid_map(specfile, addpix, savefile, boxsize=205, tran
     - trans_sep : the transverse separation between sightlines in cMpc/h
     """
     f = h5py.File(specfile,'r')
-    flux, NHI = _get_flux_noiseless(specfile,addpix)
+    flux, NHI = _get_flux_noiseless(specfile,addpix, Npix)
     tdim= int(boxsize/trans_sep)
     flux = np.ravel(flux)
     NHI_map = np.ravel(NHI)
