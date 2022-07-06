@@ -158,5 +158,5 @@ class Density:
                 num_parts += f[self.typestr+'/num_parts'][()]
         with h5py.File(self.savefile, 'w') as f_w:
             f_w[self.typestr+'/dens'] = dens
-            f_w[self.typestr+'DM/momentumz'] = pz
+            f_w[self.typestr+'/momentumz'] = pz
             f_w[self.typestr+'/num_parts']=num_parts

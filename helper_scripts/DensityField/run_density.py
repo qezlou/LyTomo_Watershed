@@ -1,3 +1,7 @@
+"""
+A helper script showing how to use the `density` module. 
+"""
+
 import argparse
 from lytomo_watershed.density import Density
 

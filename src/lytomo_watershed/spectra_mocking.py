@@ -821,7 +821,7 @@ def get_mock_sightline_number(z_range, pixfile='./spectra/maps/mapsv13/dcv13pix.
 
     """
     from .latis import Latis
-    latis = Latis()
+    latis = Latis(pixfile=pixfile, mapfile=mapfile,idsfile=idsfile)
     redshifts, sightlines = get_sightline_num(pixfile, mapfile, idsfile, latis_dim)
     # Take the average sightline num within z_range
     ind = (redshifts >= z_range[0])*(redshifts <= z_range[1])
