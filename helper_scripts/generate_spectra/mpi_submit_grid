@@ -1,16 +1,15 @@
 #!/bin/bash
 
-#SBATCH --job-name=truemap
-#SBATCH --time=2:00:00
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=12
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=MaxMemPerNode
+#SBATCH --job-name=Tz2.3
+#SBATCH --time=10:00:00
+#SBATCH --nodes=5
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=340G
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-module load gnu7
-module load gsl
-module load mpich
-mpirun python3 parallel_grid.py --snap 29 --nspec 205 --res 2.4195084899095134 --savefile "spectra_TNG_true_2460_pixels.hdf5"
+module load gsl/2.4
+module load mpich/4.0.0
+mpirun python3 parallel_grid.py --snap 30 --nspec 820 --res 26.07791828 --savefile "spectra_TNG_true_z2.3_820_pixels.hdf5" --base "/central/groups/carnegie_poc/mqezlou/TNG"
 
 
 

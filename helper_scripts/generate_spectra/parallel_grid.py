@@ -14,8 +14,9 @@ from mpi4py import MPI
 import numpy as np
 import time
 import argparse
+import os
 
-def get_spec(snap, nspec, res, savefile):
+def get_spec(snap, nspec, res, savefile, base):
    comm = MPI.COMM_WORLD
    rank = comm.Get_rank()
    size = comm.Get_size()
@@ -23,8 +24,8 @@ def get_spec(snap, nspec, res, savefile):
    tss = time.asctime()
    print('Rank =', rank, 'started!', tss, flush=True)
 
-   base = '/lustre/scratch/mqezlou/TNG300-1/output/snapdir_0'+str(snap)+'/'
-   savedir='/lustre/scratch/mqezlou/TNG300-1/postprocessing/spectra/Snap_0'+str(snap)+'/true/'
+   base = os.path.join(base, 'output/snapdir_0'+str(snap))
+   savedir= os.path.join(base, '/postprocessing/spectra/')
 
    rank_str = str(rank)
    gs = GriddedSpectra(num= snap, base= base, nspec= nspec, MPI = MPI, res= res, savedir= savedir, savefile= savefile, axis=3, 
@@ -49,9 +50,12 @@ if __name__ == '__main__':
    parser.add_argument('--nspec', type=int, required=True, help='Make a grid of nspec*nspec of spectra')
    parser.add_argument('--res', type=float, required=True, help='Pixel resolution in km/s')
    parser.add_argument('--savefile', type=str, required=True, help='File name for the spectra')
+   parser.add_argument('--base', type=str, required=True, 
+                       help='The base directory. You should have `/output` and `/postprocessing/spectra/` in it' )
+
 
 
 
    args = parser.parse_args()
 
-   get_spec(snap=args.snap, nspec= args.nspec, res= args.res, savefile= args.savefile) 
+   get_spec(snap=args.snap, nspec= args.nspec, res= args.res, savefile= args.savefile, base=args.base) 
