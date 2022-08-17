@@ -878,7 +878,7 @@ def _get_flux_noiseless(specfile, addpix, Npix):
     # Averaging over the flux within a pixel
     for i in range(t.size-1) : 
         new_flux[:,i] = (np.sum(flux[:,t[i]:t[i+1]], axis=1))/addpix
-        new_NHI[:,i] = np.sum(new_NHI[:,t[i]:t[i+1]], axis=1)
+        new_NHI[:,i] = np.sum(NHI[:,t[i]:t[i+1]], axis=1)
     del flux
     del NHI
 
