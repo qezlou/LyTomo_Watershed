@@ -115,13 +115,13 @@ class Density:
             cat['Coordinates'] = self._apply_RSD(coord=cat['Coordinates'], vel=cat['Velocities'])
 
         print('Rank ', self.comm.rank, ' cat,size= ', cat.size, flush=True)
-        mesh = cat.to_mesh(Nmesh=self.Nmesh, position='Coordinates')
+        mesh = cat.to_mesh(Nmesh=self.Nmesh, position='Coordinates', compensated=True)
         dens = mesh.compute()
         if self.momentumz :
             # Average line-of-sight velocity in each voxel, the Gadget/Arepo units are in
             # sqrt(a)*km/s units
             cat['Vz'] = cat['Velocities'][:,2]/np.sqrt(1+self.z)
-            mesh_momen = cat.to_mesh(Nmesh=self.Nmesh, position='Coordinates', value='Vz')
+            mesh_momen = cat.to_mesh(Nmesh=self.Nmesh, position='Coordinates', value='Vz', compensated=True)
             pz = mesh_momen.compute()
         L = np.arange(0, self.Nmesh, 1)
         # Write each ranks' results on a file
