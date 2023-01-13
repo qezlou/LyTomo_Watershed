@@ -739,7 +739,7 @@ def mask_strong_absb_v2(deltav, Fnorm, CNR, maxdv=1000, Fm=None, ewmin=5):
     """
     Masking the strong absorbers with EW > 5 A
     deltav : The velocity interval per pixel in km/s
-    Fnorm : The 1D spectrum normalized to the continuum level.
+    Fnorm : 2D array, each row is a 1D spectrum normalized to the continuum level.
     CNR = Continuum to Noise ratio in each pixel along the sightline,
     it should be the same for all pixels on that spectrum for LATIS mock spectra
     Fm : the mean flux, so <Fnorm>~Fm
@@ -748,41 +748,42 @@ def mask_strong_absb_v2(deltav, Fnorm, CNR, maxdv=1000, Fm=None, ewmin=5):
     returns : A boolean array with size of the spectra, True in pixels
     need to be masked.
     """
-    L = len(Fnorm)
+    L = Fnorm.shape[1]
     dlam = deltav / 299792. * 1215.67 # rest-frame A per pixel
     mask = np.zeros(L, dtype=bool)
     from scipy.ndimage import label
+    from scipy.signal import fftconvolve
     # !!! Improvements on next line" !!!
     #  1. this does not take care of periodic boubndaries, padding can solve this
     #  2. why averaging over the 5 adjacent pixels, each pixel isn't 1 Asngstrom!
     # In practice, it passes the tests, so it might not be crucial
-    Fnorm = np.convolve(Fnorm, np.ones(5)/5)[2:-2]
-    lspec, _ = label((Fnorm < Fm).astype(int))
+    Fnorm = np.fftconvolve(Fnorm, np.ones(5)/5, axis=1)[2:-2]
+    lspec, _ = label(Fnorm < Fm, structure=[[0,0,0],[1,1,1],[0,0,0]]).astype(int)
     # If the whole spectrum is under the mean flux mask all of it
-    if np.where(lspec)[0].size==L :
-        mask = np.ones(L, dtype=bool)
-        return mask
+    ind = np.where(np.prod(lspec)==1)[0]
+    if ind.size != 0:
+        mask = np.ones_like(Fnorm, dtype=bool)
+        mask[ind,:] = True
+
     # Periodic Boundary Condition
-    bc = False
-    if (lspec[0])*(lspec[-1]):
-        bc=True
-        #lspec[lspec==lspec[-1]] = lspec[lspec==lspec[0]][0]
-    if bc:
-        l = np.unique(lspec).size - 2
-    else:
-        l = np.unique(lspec).size - 1
+    bc = np.zeros(Fnorm.shape[0], dtype=bool)
+    ind = np.where(lspec[:,0]*lspec[:,-1])[0]
+    bc[ind]=True
+    l = np.unique(lspec).size - 1
+
     for j in range(1,l+1):
-        if j==1:
-            if bc:
-                ind = np.where(lspec==1)[0]
-                ind0 = ind[-1]
-                lastisland = np.unique(lspec).size - 1
-                ind = np.where(lspec==lastisland)[0]
-                ind1 = ind[0]
-                cen = int((ind0 + -1*(L-ind1))/2)%L
-                lspec[lspec==lspec[-1]] = lspec[lspec==lspec[0]][0]
+        ind = np.where(lspec==j)
+        if ind[0].size==0:
+            continue
+        if bc[ind[0][0]] and (0 in ind[1]):
+            ind0 = ind[1][-1]
+            lastisland = lspec[ind[0][0],-1]
+            ind_last = np.where(lspec==lastisland)
+            ind1 = ind_last[1][0]
+            cen = int((ind0 + -1*(L-ind1))/2)%L
+            lspec[ind_last] = j
             else :
-                ind = np.where(lspec==j)[0]
+                ind = np.where(lspec==1)[0]
                 cen = int((ind[0]+ind[-1])/2)
         else :
             ind = np.where(lspec==j)[0]
