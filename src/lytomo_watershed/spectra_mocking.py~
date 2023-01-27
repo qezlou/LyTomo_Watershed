@@ -735,7 +735,7 @@ def mask_strong_absb(deltav, Fnorm, maxdv=1000, Fm=None, ewmin=5):
             else : mask[0:lst+1], mask[frst:-1] = True, True
     return mask
 
-def mask_strong_absb_v2(deltav, Fnorm, CNR, maxdv=1000, Fm=None, ewmin=5, consider_noise=True):
+def mask_strong_absb_v2(deltav, Fnorm, CNR, maxdv=1000, Fm=None, ewmin=5):
     """
     Masking the strong absorbers with EW > 5 A
     deltav : The velocity interval per pixel in km/s
@@ -790,12 +790,9 @@ def mask_strong_absb_v2(deltav, Fnorm, CNR, maxdv=1000, Fm=None, ewmin=5, consid
         # Note here the EW is defined relative to the unabsorbed continuum, not the mean flux.
         # It doesn't really matter much, but this is consistent with the data treatment.
         ew = np.sum(1 - Fnorm[inwin])*dlam
-        if consider_noise:
-            # Only mask absorbers more sifnificant than the noise 
-            dew = np.sqrt(np.sum(1/CNR[inwin]**2))*dlam
-            if ew > ewmin and dew/ew < 5: mask[lspec==j]=True
-        else:
-            if ew > ewmin : mask[lspec==j]=True
+        # Only mask absorbers more sifnificant than the noise 
+        #dew = np.sqrt(np.sum(1/CNR[inwin]**2))*dlam
+        if ew > ewmin : mask[lspec==j]=True
     return mask
 
 def get_sightline_num(pixfile='./spectra/maps/mapsv13/dcv13pix.dat', mapfile='./spectra/maps/mapsv13/dcv13map.dat',idsfile='./spectra/maps/mapsv13/dcv13ids.dat', latis_dim=[93,51,483]):
