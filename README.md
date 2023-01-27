@@ -5,7 +5,7 @@ The repository for reproducing the results in [Qezlou et al. 2021](https://arxiv
 
 ### Cookbook :
 
-There is a step-by-step cookbook in [`CookBook.ipynb`](https://github.com/mahdiqezlou/LyTomo-Watershed/blob/main/CookBook.ipynb)
+There is a step-by-step cookbook in [`CookBook.ipynb`](https://github.com/mahdiqezlou/LyTomo_Watershed/blob/main/notebooks/CookBook.ipynb)
 
 ### Requirements :
 

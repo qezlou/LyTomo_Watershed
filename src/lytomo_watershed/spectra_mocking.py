@@ -752,6 +752,10 @@ def mask_strong_absb_v2(deltav, Fnorm, CNR, maxdv=1000, Fm=None, ewmin=5, consid
     dlam = deltav / 299792. * 1215.67 # rest-frame A per pixel
     mask = np.zeros(L, dtype=bool)
     from scipy.ndimage import label
+    # !!! Improvements on next line" !!!
+    #  1. this does not take care of periodic boubndaries, padding can solve this
+    #  2. why averaging over the 5 adjacent pixels, each pixel isn't 1 Asngstrom!
+    # In practice, it passes the tests, so it might not be crucial
     Fnorm = np.convolve(Fnorm, np.ones(5)/5)[2:-2]
     lspec, _ = label((Fnorm < Fm).astype(int))
     # If the whole spectrum is under the mean flux mask all of it
