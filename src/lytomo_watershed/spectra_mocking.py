@@ -864,7 +864,7 @@ def get_spec_res(z=2.2, spec_res=2.06, pix_size=1.8):
 
     return(pix_size*conv_fac, spec_res*conv_fac)
 
-def _get_flux_noiseless(specfile, addpix, Npix):
+def _get_flux_noiseless(specfile, addpix, Npix, sight_subset=None):
     """ A helper for get_true_map_v2() 
     It is almost identical to get_deltaF_v2() for mock maps
     specfile : spectra file for the true spectra
@@ -873,31 +873,51 @@ def _get_flux_noiseless(specfile, addpix, Npix):
     """
     ps = PS(num = 1, base='./', savedir='', savefile=specfile, res=None)
     spec_file = h5py.File(specfile, 'r')
-    NHI = spec_file['colden/H/1'][:]
-    ind = np.where(np.sum(NHI,axis=1)<10**19)
+    try:
+        if sight_subset is None:
+            NHI = spec_file['colden/H/1'][:]
+        else:
+            NHI = spec_file['colden/H/1'][sight_subset[0]:sight_subset[1]]
+            ind = np.where(np.sum(NHI,axis=1)<10**19)
+    except:
+        NHI= None
+        ind= None
     mean_flux_desired = get_mean_flux(z=spec_file['Header'].attrs['redshift'])
-    flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][:], mean_flux_desired=mean_flux_desired, ind=ind)
+    if sight_subset is None:
+        flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][:], mean_flux_desired=mean_flux_desired, ind=ind)
+    else:
+        flux = correct_mean_flux(tau=spec_file['tau/H/1/1215'][sight_subset[0]:sight_subset[1]], mean_flux_desired=mean_flux_desired, ind=ind)
     # Check if the last pixel is fixed
     L = np.shape(flux)[1]
-    t = np.arange(0,L+1,addpix)
-    new_flux = np.zeros(shape=(np.shape(flux)[0], t.size-1))
-    new_NHI = np.zeros(shape=(np.shape(NHI)[0], t.size-1))
     # Averaging over the flux within a pixel
-    for i in range(t.size-1) : 
-        new_flux[:,i] = (np.sum(flux[:,t[i]:t[i+1]], axis=1))/addpix
-        new_NHI[:,i] = np.sum(NHI[:,t[i]:t[i+1]], axis=1)
+    if addpix is not None:
+        t = np.arange(0,L+1,addpix)
+        new_flux = np.zeros(shape=(np.shape(flux)[0], t.size-1))
+        if NHI is not None:
+            new_NHI = np.zeros(shape=(np.shape(NHI)[0], t.size-1))
+        for i in range(t.size-1) : 
+            new_flux[:,i] = (np.sum(flux[:,t[i]:t[i+1]], axis=1))/addpix
+            if NHI is not None:
+                new_NHI[:,i] = np.sum(NHI[:,t[i]:t[i+1]], axis=1)
+    else:
+        new_flux = flux
+        new_NHI = NHI
     del flux
     del NHI
 
     ## Interpolate along the line-of-sight if necessary
     if Npix is not None:
         interp_flux = np.zeros((new_flux.shape[0], Npix))
-        interp_NHI = np.zeros((new_NHI.shape[0], Npix))
+        if new_NHI is not None:
+            interp_NHI = np.zeros((new_NHI.shape[0], Npix))
         for i in range(new_flux.shape[0]):
             fintp = interpolate.interp1d(np.arange(new_flux.shape[1]), new_flux[i,:], kind='linear', fill_value='extrapolate')
-            interp_flux[i,:] = fintp(np.arange(Npix)*(new_NHI.shape[1]/Npix))
-            fintp = interpolate.interp1d(np.arange(new_NHI.shape[1]), new_NHI[i,:], kind='linear', fill_value='extrapolate')
-            interp_NHI[i,:] = fintp(np.arange(Npix)*(new_NHI.shape[1]/Npix))
+            interp_flux[i,:] = fintp(np.arange(Npix)*(new_flux.shape[1]/Npix))
+            if new_NHI is not None:
+                fintp = interpolate.interp1d(np.arange(new_NHI.shape[1]), new_NHI[i,:], kind='linear', fill_value='extrapolate')
+                interp_NHI[i,:] = fintp(np.arange(Npix)*(new_NHI.shape[1]/Npix))
+            else:
+                interp_NHI = None
     else:
         interp_flux = new_flux
         interp_NHI = new_NHI
@@ -905,7 +925,8 @@ def _get_flux_noiseless(specfile, addpix, Npix):
     del new_flux
     del new_NHI
     interp_flux = np.ravel(interp_flux)
-    interp_NHI = np.ravel(interp_NHI)
+    if interp_NHI is not None:
+        interp_NHI = np.ravel(interp_NHI)
     current_mean_flux = np.mean(np.ravel(interp_flux))
     print('mean flux after noise =', current_mean_flux)
     print ("*** Error on mean flux :*** ", current_mean_flux-mean_flux_desired)
@@ -913,34 +934,40 @@ def _get_flux_noiseless(specfile, addpix, Npix):
     return interp_flux, interp_NHI
 
 
-def get_noiseless_uniform_grid_map(specfile, savefile, addpix, Npix=None, boxsize=205, trans_sep=1.0):
+def get_noiseless_uniform_grid_map(specfile, savefile, addpix, Npix=None, boxsize=205, trans_sep=1.0, sight_subset=None):
     """Write a 3D matrix for the noiseless map, with averaing consecutive pixels along each specttum
     - specfile : The raw spectra generated with fake_spectra
     - addpix : the number of consecutive pixels to be averaged over
+    - Npix : The flux will be linearly interpolated along the line-of-sight to get this
+            number of pixels.
     - savefile : The hdf5 file name to save the result in
     - trans_sep : the transverse separation between sightlines in cMpc/h
+    - sight_subset: tuple, optional, indicating the first and last indices to the 
+            spectra you want to load from the hdf5 file. 
     """
     f = h5py.File(specfile,'r')
-    flux, NHI = _get_flux_noiseless(specfile,addpix, Npix)
+    flux, NHI = _get_flux_noiseless(specfile,addpix, Npix, sight_subset)
     tdim= int(boxsize/trans_sep)
     flux = np.ravel(flux)
-    NHI_map = np.ravel(NHI)
     m = (flux/np.mean(flux))-1
     flux = flux.reshape(tdim,tdim,int(flux.size/(tdim**2)))
     m = m.reshape(tdim,tdim,int(m.size/(tdim**2)))
-    NHI_map = np.ravel(NHI)
-    NHI_map = NHI.reshape(tdim, tdim, int(NHI.size/(tdim**2)))
+    if NHI is not None:
+        NHI_map = np.ravel(NHI)
+        NHI_map = NHI.reshape(tdim, tdim, int(NHI.size/(tdim**2)))
     # I  am not sure why, but plotting the map says I need an (x,y) transpose
     for z in range(0, flux.shape[2]):
         flux[:,:,z] = flux[:,:,z].T
         m[:,:,z] = m[:,:,z].T
-        NHI_map[:,:,z] = NHI_map[:,:,z].T
+        if NHI is not None:
+            NHI_map[:,:,z] = NHI_map[:,:,z].T
     if savefile is not None:
         with h5py.File(savefile, 'w') as ftrue :
             ftrue['flux'] = flux
             ftrue['map'] = m
             ftrue['redshift'] = f['Header'].attrs['redshift']
-            ftrue['NHI'] = NHI_map
+            if NHI is not None:
+                ftrue['NHI'] = NHI_map
     else:
         return m
 
