@@ -52,8 +52,9 @@ class Density:
         # Old Dask used in nbodykit does not accept elemnt-wise assignment, 
         # so we need to project V_pec along ls_vec
         print('Debug : BoxSize', self.boxsize, ' ls_vec: ', self.ls_vec, ' coord type :', type(coord), ' vel type :', type(vel), flush=True)
-       
-        coord = (coord + vel*self.ls_vec*1000*cosmo.h*np.sqrt(1+self.z)/cosmo.H(self.z).value)%self.boxsize
+        if self.sim_type != 'mp-gadget':
+            vel *= np.sqrt(1+self.z)
+        coord = (coord + vel*self.ls_vec*1000*cosmo.h/cosmo.H(self.z).value)%self.boxsize
         return coord
         
     
@@ -98,24 +99,46 @@ class Density:
             self.boxsize = fr['Header'].attrs['BoxSize']
         cat = HDFCatalog(self.snaps, dataset=self.parttype, header='Header')
         return cat
-        
+    
+    def get_mpgadget_cat(self):
+        """
+        Retrun a particle catalog for MP-Gadget type simulations, i.e. BigFile format
+        """
+        from nbodykit.lab import BigFileCatalog
+        ptype_dict={'PartType0':'0', 'PartType1':'1'}
+        cat = BigFileCatalog(self.snaps, dataset=ptype_dict[self.parttype], header='Header')
+        self.z = 1/cat._attrs['Time'][0] - 1
+        self.boxsize = cat._attrs['BoxSize'][0]
+        return cat
+    
     def Gadget(self):
         """
         Generate the density feild on a grid for Gadget simulations, e.g. Iluustris.
         """ 
+        if self.sim_type == 'MP-Gadget':
+            position_str = 'Position'
+            vel_str = 'Velocity'
+            cat = self.get_mpgadget_cat()
         if self.sim_type == 'Gadget':
+            vel_str = 'Velocities'
+            position_str = 'Coordinates'
             cat = self.get_gadget_cat()
         elif self.sim_type == 'Gadget_old':
+            position_str = 'Coordinates'
+            vel_str = 'Velocities'
             cat = self.get_gadget_old_cat()
         elif self.sim_type == 'Converted_Gadget_old':
+            position_str = 'Coordinates'
+            vel_str = 'Velocities'
             cat = self.get_converted_gadget1_cat()
         else :
             raise TypeError('The snapshot type is not supported]')
         if self.zspace:
-            cat['Coordinates'] = self._apply_RSD(coord=cat['Coordinates'], vel=cat['Velocities'])
+            cat[position_str] = self._apply_RSD(coord=cat[position_str], vel=cat[vel_str])
 
         print('Rank ', self.comm.rank, ' cat,size= ', cat.size, flush=True)
-        mesh = cat.to_mesh(Nmesh=self.Nmesh, position='Coordinates', compensated=True)
+
+        mesh = cat.to_mesh(Nmesh=self.Nmesh, position=position_str, compensated=True)
         dens = mesh.compute()
         if self.momentumz :
             # Average line-of-sight velocity in each voxel, the Gadget/Arepo units are in
