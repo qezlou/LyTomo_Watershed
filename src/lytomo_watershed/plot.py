@@ -231,6 +231,7 @@ class Mtomo_MDM():
         err = []
         for i in range(bins.size-1):
             ind = np.where( (Mtomo > bins[i])*(Mtomo < bins[i+1]))
+
             dev = fit(Mtomo[ind]) - MDM[ind]
             err.append(np.sqrt(np.sum(dev*dev)/dev.size))
 
@@ -270,7 +271,10 @@ class Mtomo_Mdesc():
 
         f = h5py.File(fname,'r')
         peaks = h5py.File(pname,'r')
-        lmap = h5py.File(lmapname, 'r')['map'][:]
+        if lmapname is not None:
+            lmap = h5py.File(lmapname, 'r')['map'][:]
+        else:
+            lmap = None
         return f, peaks, lmap
 
     def get_ind_non_overlapping(self, lmap1, lmap2):
@@ -293,6 +297,28 @@ class Mtomo_Mdesc():
             signif = peaks['signif'][ind]
 
         return Mtomo, GroupMass, signif
+
+    def get_median_std(self, z, sigma, th, lc, offset, 
+                       nrange=np.arange(1,17,1), random=False,
+                       bins=np.array([13, 13.75, 14.25, 14.75, 15.5])):
+        """Get the median and std of Mdesc in each Mtomo bin"""
+        mtomo_all = np.array([])
+        group_mass_all = np.array([])
+        for n in nrange:
+            f, peaks, _ = self.read_files(n=n, z=z, sigma=sigma, th=th, lc=lc, noiseless=False, random=random)
+            mtomo, group_mass, _ = self.get_Mtomo_GroupMass(f, peaks, offset=offset, noiseless=False)
+            mtomo_all = np.append(mtomo_all, mtomo)
+            group_mass_all = np.append(group_mass_all, group_mass)
+        
+        median_group_mass = np.array([])
+        std_group_mass = np.array([])
+        mbins = np.array([(bins[i]+bins[i+1])/2 for i in range(bins.size-1)])
+        for i in range(bins.size-1):
+            ind = np.where( (mtomo_all > bins[i])*(mtomo_all < bins[i+1]))
+            median_group_mass = np.append(median_group_mass,
+                                          np.median(group_mass_all[ind]))
+            std_group_mass = np.append(std_group_mass, np.std(group_mass_all[ind]))
+        return mbins, median_group_mass, std_group_mass
 
 
     def get_the_mean_fit(self, z, sigma, th, lc, offset, nrange=np.arange(1,17,1), random=False):
