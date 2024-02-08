@@ -469,11 +469,13 @@ def correct_Delta(z = 2.4442257045541464, mdm = 0.003983427498675485, Nt=2500**3
 def convert_Delta_Msol_ph(z, volume=1):
     """
     Convert Delta = rho /<rho_DM> to Msol/h  within each vocxel of volume (cMpc/h) at redshift z
+    Volume: in cMpc/h
+    Returns: The mass in Msol/h in each voxel
     """
     from astropy.cosmology import Planck15 as cosmo
     import astropy.units as u
     
-    return volume*(cosmo.critical_density(z=z).to(u.solMass/u.Mpc**3)*(1/(1+cosmo.Ob0/cosmo.Om0))*((1*u.Mpc/((1+z)*cosmo.h))**3)).value
+    return volume * cosmo.critical_density(z=0).to(u.solMass/u.Mpc**3) * cosmo.Odm0 * cosmo.h**(-2)
 
 
 def get_islands(thresh=-2.0, sigma=4):
