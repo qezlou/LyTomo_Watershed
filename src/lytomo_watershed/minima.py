@@ -475,7 +475,7 @@ def convert_Delta_Msol_ph(z, volume=1):
     from astropy.cosmology import Planck15 as cosmo
     import astropy.units as u
     
-    return volume * cosmo.critical_density(z=0).to(u.solMass/u.Mpc**3) * cosmo.Odm0 * cosmo.h**(-2)
+    return volume * (cosmo.critical_density(z=0).to(u.solMass/u.Mpc**3) * cosmo.Odm0 * cosmo.h**(-2)).value
 
 
 def get_islands(thresh=-2.0, sigma=4):
